@@ -1,0 +1,109 @@
+/* docs/04-design.md 토큰. 값은 문서와 1:1로 맞춘다 (다크 테마는 v1.1 SET-02에서 같은 이름으로 덮어쓴다) */
+:root {
+  --bg: #f7f5f0;
+  --surface: #ffffff;
+  --chrome: #efece4;
+  --border: #e3dfd5;
+  --border-strong: #c9c3b5;
+  --text: #1a1917;
+  --text-muted: #55524c;
+  --text-subtle: #6b6862;
+  --accent: #a8481a;
+  --success: #3f7a5e;
+  --danger: #8c2f1b;
+
+  --font-serif: 'Gowun Batang', serif;
+  --font-sans: 'IBM Plex Sans KR', 'Malgun Gothic', system-ui, sans-serif;
+
+  --radius-card: 18px;
+  --radius-control: 12px;
+  --space-page: 28px;
+  --control-height: 44px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.page {
+  max-width: 640px;
+  padding: 48px var(--space-page);
+}
+
+.logo {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 27px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.card {
+  margin-top: 24px;
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.section-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.caption {
+  margin: 4px 0 16px;
+  font-size: 12.5px;
+  color: var(--text-subtle);
+}
+
+.button-primary {
+  height: var(--control-height);
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.button-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.button-primary:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.status {
+  min-height: 1.7em;
+  margin: 12px 0 0;
+}
+
+.success {
+  color: var(--success);
+}
+
+.danger {
+  color: var(--danger);
+}

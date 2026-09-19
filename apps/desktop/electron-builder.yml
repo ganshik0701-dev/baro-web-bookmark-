@@ -1,0 +1,12 @@
+appId: com.baro.app
+productName: baro
+directories:
+  output: release
+files:
+  - out/**
+win:
+  target: nsis
+  artifactName: baro-${version}-setup.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

@@ -1,0 +1,8 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm 10은 설치 스크립트를 기본으로 막는다. 실행 파일을 받아야 하는 것만 허락한다
+onlyBuiltDependencies:
+  - electron   # Electron 실행 파일(electron.exe) 다운로드
+  - esbuild    # Vite가 쓰는 번들러의 실행 파일 확인
