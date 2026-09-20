@@ -3,7 +3,7 @@
 전체 계획의 현재 상태. 작업이 끝날 때마다 여기 체크박스를 채운다.
 상세 내용은 `docs/05-roadmap.md`, 작업 지시 문구는 `docs/06-prompts.md`.
 
-마지막 갱신: 2026-09-19 (2주차 완료, 1주차는 계정·배포만 남음)
+마지막 갱신: 2026-09-21 (1·2주차 완료, 다음은 3주차 Google 로그인)
 
 ---
 
@@ -16,7 +16,7 @@
 - [x] 작업 문서 세트 (CLAUDE.md, docs/01~06)
 - [ ] 남은 결정: 도메인 / 자동 업데이트·코드 서명 / 확장 웹스토어 게시
 
-## 1주차 — 환경 설정 (진행 중)
+## 1주차 — 환경 설정 (완료)
 
 **코드**
 - [x] pnpm 워크스페이스 모노레포 (apps, packages, docs, .github)
@@ -41,10 +41,10 @@
 - [x] 두 앱 `package.json`에 `@baro/shared` 워크스페이스 의존성 복구 (락파일 반영)
 
 **계정·배포**
-- [ ] Git 저장소 초기화, 첫 커밋, GitHub 푸시 (`.env` 제외 확인)
-- [ ] GitHub Actions CI 통과
-- [ ] Vercel 배포 (Root Directory = `apps/api`), 배포 주소에서 health 확인
-- [ ] Supabase 프로젝트 생성 (Seoul), 키 4개를 `apps/api/.env`·Vercel에 입력
+- [x] Git 저장소 초기화, 첫 커밋, GitHub 푸시 (`.env` 제외 확인)
+- [x] GitHub Actions CI 통과
+- [x] Vercel 배포 (Root Directory = `apps/api`), 배포 주소에서 health 확인
+- [x] Supabase 프로젝트 생성 (Seoul), 키 4개를 `apps/api/.env`·Vercel에 입력
 
 ## 2주차 — DB (완료)
 
@@ -106,6 +106,7 @@
 ## 8주차 — MVP 마무리
 
 - [ ] electron-builder로 Windows 설치 파일
+  - [ ] `apps/desktop/.env.production`에 배포 주소 넣기 (localhost가 박힌 설치 파일 방지)
 - [ ] E2E 테스트 (로그인 → 동기화 → 검색 → 열기)
 - [ ] 보안 점검 (타인 데이터, SSRF, 위험 URL, 토큰 노출, Electron 설정)
 - [ ] README 정리
