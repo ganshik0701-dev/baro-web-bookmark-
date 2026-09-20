@@ -47,6 +47,7 @@ supabase/migrations  SQL, RLS, 트리거
 - 앱과 확장은 **API를 통해서만** DB에 접근한다. 클라이언트에서 Supabase에 직접 쿼리하지 않는다.
 - 앱의 API 호출은 **메인 프로세스에서만** 한다. 렌더러는 preload가 노출한 API 전용 함수(IPC)로만 요청하고, 범용 fetch는 노출하지 않는다. 액세스 토큰도 메인 프로세스에만 둔다
 - 앱 인증: `Authorization: Bearer <Supabase 액세스 토큰>`
+- 로그인·토큰 갱신은 앱 메인 프로세스가 Supabase Auth와 **직접** 주고받는다(PKCE `code_verifier`가 앱 밖으로 나가면 안 되므로). 인증은 위 "API를 통해서만" 규칙의 예외이고, DB 접근은 예외 없이 API를 지난다
 - 확장 인증: `Authorization: Bearer baro_<API 토큰>`
 
 ## 기술 스택

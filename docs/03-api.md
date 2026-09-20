@@ -16,8 +16,6 @@ Next.js Route Handler, 기본 경로 `/api/v1`, JSON.
 
 | 메서드 | 경로 | 설명 | 호출 | 기능 |
 | --- | --- | --- | --- | --- |
-| POST | /auth/exchange | OAuth 코드 → 세션 교환 | 앱 | AUTH-01 |
-| POST | /auth/refresh | 액세스 토큰 갱신 | 앱 | AUTH-02 |
 | GET | /me | 프로필·설정 조회 | 앱 | SET |
 | PATCH | /me | 설정 변경 | 앱 | SET, SEARCH-05 |
 | DELETE | /me | 회원 탈퇴 | 앱 | AUTH-04 |
@@ -40,7 +38,10 @@ Next.js Route Handler, 기본 경로 `/api/v1`, JSON.
 | POST | /sync/chrome | 트리 동기화 | 앱·확장 | DESK-03, EXT-02~04 |
 | POST | /import/chrome | HTML 가져오기 | 앱 | IO-01 |
 
-로그인은 앱이 시스템 브라우저로 Supabase OAuth URL을 열고(PKCE), 루프백 서버가 받은 코드를 `/auth/exchange`로 넘긴다.
+로그인은 앱이 시스템 브라우저로 Supabase OAuth URL을 열고(PKCE), 루프백 서버가 `code`를 받는다.
+코드 교환과 토큰 갱신은 **앱 메인 프로세스가 Supabase Auth와 직접** 한다(`POST /auth/v1/token?grant_type=pkce`, `grant_type=refresh_token`).
+PKCE의 `code_verifier`는 만든 쪽이 써야 하고 앱 밖으로 나가면 안 되므로, 이 API에는 인증 교환·갱신 엔드포인트를 두지 않는다.
+이 API는 교환이 끝난 액세스 토큰을 `Authorization: Bearer`로 받아 검증만 한다. **DB 접근은 예외 없이 이 API를 지난다.**
 
 ## GET /bookmarks
 

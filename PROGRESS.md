@@ -3,7 +3,9 @@
 전체 계획의 현재 상태. 작업이 끝날 때마다 여기 체크박스를 채운다.
 상세 내용은 `docs/05-roadmap.md`, 작업 지시 문구는 `docs/06-prompts.md`.
 
-마지막 갱신: 2026-09-21 (1·2주차 완료, 다음은 3주차 Google 로그인)
+마지막 갱신: 2026-09-21 (3주차 시작, OAuth 설정 브라우저 확인 완료)
+
+**다음 작업: AUTH-01 — curl로 PKCE 토큰 교환 확인 후 코드 작성**
 
 ---
 
@@ -59,9 +61,9 @@
 
 ## 3주차 — Google 로그인
 
-- [ ] Google Cloud OAuth 클라이언트 생성, Supabase Auth 연결
-- [ ] AUTH-01: 루프백 서버 + PKCE, `/auth/exchange`
-- [ ] AUTH-02: safeStorage 토큰 저장, 자동 로그인, `/auth/refresh`
+- [x] Google Cloud OAuth 클라이언트 생성, Supabase Auth 연결 (브라우저로 PKCE 왕복 확인, 포트 와일드카드 동작)
+- [ ] AUTH-01: 루프백 서버 + PKCE, Supabase Auth와 직접 코드 교환
+- [ ] AUTH-02: safeStorage 토큰 저장, 자동 로그인, 토큰 직접 갱신
 - [ ] AUTH-03: 로그아웃
 - [ ] SCR-01 로그인 화면
 - [ ] 앱 재실행 후에도 로그인 유지 확인
