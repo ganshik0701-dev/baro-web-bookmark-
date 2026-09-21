@@ -1,7 +1,7 @@
 import { app, BrowserWindow, shell, ipcMain } from 'electron'
 import { join } from 'node:path'
 import type { ApiFailure, ApiSuccess, HealthResponse } from '@baro/shared'
-import { getAuthStatus, initAuth, login, onAuthChange } from './auth'
+import { getAuthStatus, initAuth, login, logout, onAuthChange } from './auth'
 
 // API 서버 주소 (apps/desktop/.env의 VITE_API_BASE_URL, 공개값). 렌더러에게서 주소를 받지 않는다.
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1'
@@ -80,6 +80,8 @@ function registerIpc(): void {
     return status
   })
   ipcMain.handle('auth:status', () => getAuthStatus())
+  // AUTH-03. 로컬 로그아웃은 항상 된다. 서버 무효화 결과는 lastAttempt로 알린다
+  ipcMain.handle('auth:logout', () => logout())
 }
 
 app.whenReady().then(() => {

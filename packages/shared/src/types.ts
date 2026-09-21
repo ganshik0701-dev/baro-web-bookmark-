@@ -27,10 +27,13 @@ export type AuthSession = {
 }
 
 export type AuthAttempt = {
-  /** login: 버튼 로그인, restore: 앱 시작 시 자동 로그인, refresh: 만료 전 갱신 */
-  kind: 'login' | 'restore' | 'refresh'
+  /** login: 버튼 로그인, restore: 앱 시작 시 자동 로그인, refresh: 만료 전 갱신, logout: 로그아웃 */
+  kind: 'login' | 'restore' | 'refresh' | 'logout'
   ok: boolean
-  /** 실패 이유. 토큰 값은 들어가지 않는다 */
+  /**
+   * 실패 이유. 토큰 값은 들어가지 않는다.
+   * logout은 로컬 처리가 끝나면 ok다. 서버에 알리지 못했으면 ok인 채로 여기에 남긴다
+   */
   message: string | null
   /** 밀리초 */
   at: number
@@ -40,5 +43,10 @@ export type AuthStatus = {
   session: AuthSession | null
   /** 저장된 토큰으로 자동 로그인하는 중 */
   restoring: boolean
+  /**
+   * 이 PC에 저장된 로그인(session.bin)이 있다. 세션이 없어도 true일 수 있다
+   * (오프라인으로 시작해 자동 로그인을 재시도하는 중). 이때도 로그아웃할 수 있어야 한다
+   */
+  stored: boolean
   lastAttempt: AuthAttempt | null
 }

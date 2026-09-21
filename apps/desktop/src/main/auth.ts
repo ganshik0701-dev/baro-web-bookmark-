@@ -3,6 +3,7 @@
 //       → /callback?code=... 수신 → POST /auth/v1/token?grant_type=pkce → 세션을 메모리에 둔다.
 // AUTH-02: 리프레시 토큰은 safeStorage로 암호화해 저장하고(token-store.ts), 앱 시작 시 그걸로 자동 로그인한다.
 //          액세스 토큰 만료 전에 grant_type=refresh_token으로 직접 갱신한다.
+// AUTH-03: 로그아웃은 로컬(메모리·타이머·파일)을 먼저 비우고, 그다음 서버에 이 세션만 무효화를 요청한다.
 // code_verifier와 토큰은 이 파일(메인 프로세스) 밖으로 나가지 않는다. 로그에도 찍지 않는다.
 import { createServer, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -40,7 +41,9 @@ type Session = {
 
 // 액세스 토큰은 메모리에만. 디스크에는 리프레시 토큰만 암호화해 둔다
 let session: Session | null = null
-let persisted = false
+// session.bin이 있는가. 세션이 있으면 '이 PC에 저장됨' 여부이고, 세션이 없어도
+// 오프라인 시작 후 자동 로그인을 재시도하는 동안에는 true다(이때도 로그아웃할 수 있어야 한다)
+let stored = false
 let restoring = false
 let lastAttempt: AuthAttempt | null = null
 // 세션이 바뀔 때마다 1 올린다. 갱신 응답을 기다리는 사이 새로 로그인했으면 그 응답은 버린다
@@ -50,6 +53,8 @@ let refreshTimer: NodeJS.Timeout | null = null
 let pendingLogin: Promise<AuthStatus> | null = null
 // 갱신도 한 번에 하나만. rotation 때문에 같은 토큰으로 두 번 보내면 안 된다
 let pendingRefresh: Promise<void> | null = null
+// 로그아웃 버튼을 여러 번 눌러도 한 번만 처리한다
+let pendingLogout: Promise<AuthStatus> | null = null
 // 파일 쓰기·삭제 순서를 세션이 바뀐 순서와 같게 맞춘다(마지막 세션이 파일에 남도록)
 let diskQueue: Promise<unknown> = Promise.resolve()
 
@@ -68,8 +73,9 @@ function emit(): void {
 
 export function getAuthStatus(): AuthStatus {
   return {
-    session: session && { email: session.user.email, expiresAt: session.expiresAt, persisted },
+    session: session && { email: session.user.email, expiresAt: session.expiresAt, persisted: stored },
     restoring,
+    stored,
     lastAttempt
   }
 }
@@ -121,17 +127,22 @@ async function adoptSession(next: Session): Promise<void> {
   generation++
   session = next
   scheduleRefresh()
-  persisted = await onDisk(() => saveRefreshToken(next.refreshToken))
+  stored = await onDisk(() => saveRefreshToken(next.refreshToken))
 }
 
-async function dropSession(): Promise<void> {
+/** 파일까지 지웠으면 true. 삭제에 실패하면 stored를 그대로 둬서 화면에 로그아웃 버튼이 남게 한다 */
+async function dropSession(): Promise<boolean> {
   generation++
   session = null
-  persisted = false
   clearTimer()
-  await onDisk(clearRefreshToken).catch((err: unknown) => {
+  try {
+    await onDisk(clearRefreshToken)
+    stored = false
+    return true
+  } catch (err) {
     console.error('[auth] 세션 파일 삭제 실패:', err instanceof Error ? err.message : String(err))
-  })
+    return false
+  }
 }
 
 function onDisk<T>(fn: () => Promise<T>): Promise<T> {
@@ -164,8 +175,14 @@ function refresh(kind: 'restore' | 'refresh'): Promise<void> {
 async function runRefresh(kind: 'restore' | 'refresh'): Promise<void> {
   const gen = generation
   const token = kind === 'restore' ? await loadRefreshToken() : (session?.refreshToken ?? null)
+  // 파일을 읽는 사이 로그아웃했으면 그 토큰은 쓰지 않는다
+  if (gen !== generation) return
   // 저장된 토큰이 없으면(처음 실행, 암호화 불가) 시도할 것이 없다
   if (!token) return
+  if (kind === 'restore') {
+    stored = true
+    emit()
+  }
 
   try {
     const next = await requestToken('refresh_token', { refresh_token: token })
@@ -185,6 +202,38 @@ async function runRefresh(kind: 'restore' | 'refresh'): Promise<void> {
       refreshTimer = setTimeout(() => void refresh(kind), RETRY_MS)
     }
   }
+}
+
+export function logout(): Promise<AuthStatus> {
+  pendingLogout ??= runLogout().finally(() => {
+    pendingLogout = null
+    emit()
+  })
+  return pendingLogout
+}
+
+// 사용자가 로그아웃을 눌렀는데 안 되는 일은 없어야 한다. 그래서 로컬을 먼저 비우고
+// 서버 요청은 그 뒤에 한다. 서버 요청이 실패해도 로컬은 이미 로그아웃된 상태다
+async function runLogout(): Promise<AuthStatus> {
+  // 세션 없이 파일만 있는 상태(오프라인 시작 후 재시도 중)면 null. 서버에 보낼 토큰이 없다
+  const accessToken = session?.accessToken ?? null
+  // 재시도 타이머도 refreshTimer라 여기서 같이 멈춘다. 진행 중인 갱신·자동 로그인 응답은 generation으로 버린다
+  const cleared = await dropSession()
+  restoring = false
+  emit()
+
+  const notes: string[] = []
+  if (!cleared) notes.push('저장된 로그인 파일을 지우지 못했습니다')
+  if (accessToken) {
+    try {
+      await revokeSession(accessToken)
+    } catch (err) {
+      notes.push(`서버에 알리지 못함(${err instanceof Error ? err.message : String(err)})`)
+    }
+  }
+  // 파일이 남았으면 다음 실행 때 자동 로그인될 수 있으므로 실패로 알린다. 서버 실패만이면 로그아웃은 된 것이다
+  lastAttempt = { kind: 'logout', ok: cleared, message: notes.join(' · ') || null, at: Date.now() }
+  return getAuthStatus()
 }
 
 async function runLogin(): Promise<void> {
@@ -293,6 +342,26 @@ function assertConfig(): void {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     throw new Error('VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY가 apps/desktop/.env에 없습니다')
   }
+}
+
+// scope=local: 이 세션만 무효화한다. 기본값(global)은 다른 PC의 로그인까지 전부 푼다.
+// Supabase는 세션 단위로 폐기하므로 이 세션에서 rotation으로 받은 리프레시 토큰이 모두 무효가 된다.
+// 액세스 토큰이 이미 만료됐으면 401로 거절된다(로컬은 이미 지웠으니 결과 메시지로만 남긴다)
+async function revokeSession(accessToken: string): Promise<void> {
+  assertConfig()
+  let res: Response
+  try {
+    res = await fetch(`${SUPABASE_URL}/auth/v1/logout?scope=local`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON_KEY!, Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(5_000)
+    })
+  } catch {
+    throw new Error('Supabase에 연결하지 못했습니다')
+  }
+  if (res.ok) return
+  const body = (await res.json().catch(() => null)) as Record<string, unknown> | null
+  throw new Error(String(body?.error_code ?? body?.msg ?? `HTTP ${res.status}`))
 }
 
 /** Supabase가 요청을 거절했다(4xx). 같은 토큰으로 다시 해도 소용없다 */

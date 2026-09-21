@@ -12,11 +12,12 @@ type HealthState =
   | { kind: 'ok'; data: HealthResponse }
   | { kind: 'error'; message: string }
 
-// AUTH-01·02 확인용. 로그인 화면(SCR-01)이 생기면 그쪽으로 옮긴다
+// AUTH-01~03 확인용. 로그인 화면(SCR-01)이 생기면 그쪽으로 옮긴다
 const ATTEMPT_LABEL: Record<AuthAttempt['kind'], string> = {
   login: '로그인',
   restore: '자동 로그인',
-  refresh: '토큰 갱신'
+  refresh: '토큰 갱신',
+  logout: '로그아웃'
 }
 
 export default function App() {
@@ -26,6 +27,10 @@ export default function App() {
   // 재로그인이 실패해도 status.session은 그대로라 이메일이 화면에서 사라지지 않는다
   const [auth, setAuth] = useState<AuthStatus | null>(null)
   const [waitingLogin, setWaitingLogin] = useState(false)
+  const [waitingLogout, setWaitingLogout] = useState(false)
+  // 세션이 없어도 저장 파일이 있으면(오프라인 시작 후 재시도 중) 로그아웃 버튼을 보여준다.
+  // 공용 PC에서 오프라인으로 나가도 나중에 연결될 때 자동 로그인되지 않게 하기 위해서다
+  const canLogout = !!auth && (auth.session !== null || auth.stored)
 
   // 메인 프로세스에 IPC로 버전을 물어본다 (window.baro → preload → ipcMain.handle)
   useEffect(() => {
@@ -49,6 +54,18 @@ export default function App() {
       // 실패 이유는 status.lastAttempt로 보여준다
     } finally {
       setWaitingLogin(false)
+    }
+  }
+
+  async function startLogout() {
+    setWaitingLogout(true)
+    try {
+      // 로컬은 항상 로그아웃된다. 서버에 알리지 못한 경우는 lastAttempt.message로 보여준다
+      await window.baro.logout()
+    } catch {
+      // 결과는 onAuthChanged로 온다
+    } finally {
+      setWaitingLogout(false)
     }
   }
 
@@ -100,14 +117,20 @@ export default function App() {
         <h2 id="auth-title" className="section-title">
           Google 로그인
         </h2>
-        <button
-          type="button"
-          className="button-primary"
-          onClick={startLogin}
-          disabled={waitingLogin || !auth || auth.restoring}
-        >
-          Google로 계속하기
-        </button>
+        {canLogout ? (
+          <button type="button" className="button-primary" onClick={startLogout} disabled={waitingLogout}>
+            로그아웃
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="button-primary"
+            onClick={startLogin}
+            disabled={waitingLogin || !auth || auth.restoring}
+          >
+            Google로 계속하기
+          </button>
+        )}
         {/* 지금 상태 */}
         <p role="status" className="status">
           {!auth || auth.restoring ? (
@@ -118,6 +141,8 @@ export default function App() {
               {new Date(auth.session.expiresAt * 1000).toLocaleTimeString()} ·{' '}
               {auth.session.persisted ? '이 PC에 저장됨' : '저장 안 됨(앱을 다시 켜면 로그아웃)'}
             </span>
+          ) : auth.stored ? (
+            '저장된 로그인으로 다시 연결하는 중… (인터넷 연결 대기)'
           ) : (
             '로그인 전'
           )}
@@ -126,11 +151,15 @@ export default function App() {
         <p className="caption">
           {waitingLogin
             ? '브라우저에서 로그인을 기다리는 중…'
-            : auth?.lastAttempt && (
+            : waitingLogout
+              ? '로그아웃하는 중…'
+              : auth?.lastAttempt && (
                 <>
                   마지막 시도: {ATTEMPT_LABEL[auth.lastAttempt.kind]}{' '}
                   {auth.lastAttempt.ok ? (
-                    <span className="success">성공</span>
+                    <span className="success">
+                      성공{auth.lastAttempt.message && ` · ${auth.lastAttempt.message}`}
+                    </span>
                   ) : (
                     <span className="danger">실패 · {auth.lastAttempt.message}</span>
                   )}{' '}
