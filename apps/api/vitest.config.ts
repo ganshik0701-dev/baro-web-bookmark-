@@ -3,6 +3,8 @@ import { defineConfig } from 'vitest/config'
 
 // Next.js가 읽는 apps/api/.env를 테스트에서도 읽는다(DB 주소 등). CI에는 이 파일이 없다
 if (existsSync('.env')) process.loadEnvFile('.env')
+// 동시 요청 테스트용. 운영은 함수 하나당 연결 1개(기본값)
+process.env.DB_POOL_MAX = '5'
 
 export default defineConfig({
   test: {

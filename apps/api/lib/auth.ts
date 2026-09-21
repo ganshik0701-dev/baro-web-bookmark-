@@ -4,7 +4,7 @@
 // 토큰 값은 로그에 찍지 않는다.
 import type { NextRequest } from 'next/server'
 import { createRemoteJWKSet, errors, jwtVerify, type JWTPayload } from 'jose'
-import { fail } from './errors'
+import { ApiError, fail } from './errors'
 
 export type AuthContext = {
   userId: string
@@ -100,6 +100,7 @@ export function withAuth<P = Record<string, never>>(handler: AuthedHandler<P>) {
     try {
       return await handler(req, { auth, params })
     } catch (err) {
+      if (err instanceof ApiError) return fail(err.code, err.message, err.details)
       console.error('[api] 처리 중 오류:', err instanceof Error ? err.message : String(err))
       return fail('INTERNAL_ERROR', '요청을 처리하지 못했습니다')
     }

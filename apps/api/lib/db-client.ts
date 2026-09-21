@@ -20,7 +20,8 @@ export function getRawDb(): Db {
   // Supavisor 트랜잭션 풀러(6543): 트랜잭션이 끝나면 연결을 다른 요청과 나눠 쓴다.
   // - prepare: false  → 풀러는 준비된 문장(prepared statement)을 연결 사이에 유지하지 못한다
   // - max: 1          → 서버리스 함수 하나가 연결을 여러 개 잡지 않게 한다
-  client = postgres(url, { prepare: false, max: 1 })
+  //   (테스트는 DB_POOL_MAX로 늘린다. 운영의 '여러 함수가 동시에 도는 상황'을 연결 여러 개로 흉내 낸다)
+  client = postgres(url, { prepare: false, max: Number(process.env.DB_POOL_MAX) || 1 })
   db = drizzle(client, { schema })
   return db
 }

@@ -85,7 +85,7 @@ profiles 행이 없으면(가입 트리거가 실패한 경우 등) `401 INVALID
 | 필드 | 타입 | 필수 | 규칙 |
 | --- | --- | --- | --- |
 | url | string | 예 | http/https, 2048자 |
-| title | string | 아니요 | 100자, 없으면 메타데이터로 |
+| title | string | 아니요 | 100자, 없거나 비어 있으면 도메인 |
 | groupId | uuid | 아니요 | 본인 그룹 |
 | tags | string[] | 아니요 | 10개, 각 20자 |
 | iconUrl | string | 아니요 | https |
@@ -98,6 +98,12 @@ profiles 행이 없으면(가입 트리거가 실패한 경우 등) `401 INVALID
 ## PATCH /bookmarks/:id
 
 POST와 같은 필드(모두 선택, 최소 1개) + `isPinned`. `200 OK` + 수정된 북마크. URL을 바꿔 다른 북마크와 겹치면 `409 DUPLICATE_URL`.
+
+## GET /bookmarks/:id, DELETE /bookmarks/:id
+
+GET은 `200 OK` + 북마크. DELETE는 `204 No Content`(방문 기록은 FK cascade로 함께 삭제). 삭제 5초 되돌리기(BM-05)는 앱이 5초 기다렸다가 DELETE를 보내는 방식이라 서버는 바로 지운다.
+
+`:id`가 없거나, 남의 북마크이거나, uuid 형식이 아니면 모두 `404 BOOKMARK_NOT_FOUND`. 403을 쓰지 않는 이유: 남의 북마크가 **있다는 사실**도 알려 주지 않기 위해서다(RLS로도 안 보인다). PATCH도 같다.
 
 ## POST /bookmarks/:id/visit
 
@@ -179,9 +185,9 @@ HTML의 `<title>`, `og:title`, 파비콘 링크 추출. 3초·1MB·리다이렉�
 | 400 | VALIDATION_ERROR | 형식·규칙 위반 (details에 필드별 사유) |
 | 400 | INVALID_URL | http/https가 아님 |
 | 400 | INVALID_IMPORT_FILE | 크롬 북마크 형식 아님 |
-| 401 | UNAUTHORIZED | 세션 없음·만료 |
-| 401 | INVALID_TOKEN | API 토큰 없음·폐기됨 |
-| 403 | FORBIDDEN | 타인 리소스 |
+| 401 | UNAUTHORIZED | Authorization 헤더 없음 |
+| 401 | INVALID_TOKEN | 액세스 토큰 서명·만료·발급자 오류, API 토큰 없음·폐기됨 |
+| 403 | FORBIDDEN | (지금은 쓰지 않음) 남의 북마크·그룹은 존재를 숨기려고 404로 답한다 |
 | 404 | BOOKMARK_NOT_FOUND / GROUP_NOT_FOUND | 없음 |
 | 409 | DUPLICATE_URL / DUPLICATE_GROUP_NAME | 중복 |
 | 409 | TOKEN_LIMIT_EXCEEDED | 토큰 5개 초과 |

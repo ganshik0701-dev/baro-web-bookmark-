@@ -3,11 +3,11 @@
 전체 계획의 현재 상태. 작업이 끝날 때마다 여기 체크박스를 채운다.
 상세 내용은 `docs/05-roadmap.md`, 작업 지시 문구는 `docs/06-prompts.md`.
 
-마지막 갱신: 2026-09-21 (4주차: BM-01~05용 Zod 스키마 + 단위 테스트)
+마지막 갱신: 2026-09-22 (4주차: BM-01~05 `/bookmarks` CRUD 완료)
 
 **다음 작업 (순서대로)**
-1. BM-01~05: `/bookmarks` CRUD, URL 정규화·중복 검사
-2. `/metadata` + SSRF 차단
+1. `/metadata` + SSRF 차단
+2. `/tokens` 3종, 토큰 해시 저장, 확장 토큰 인증
 
 ---
 
@@ -101,7 +101,10 @@
 - [x] packages/shared: Zod 스키마 (BM-01~05용만. zod 3.25는 이미 설치돼 있었음)
   - [x] `httpUrl`(https:// 자동 부착, http/https만), `normalizeUrl`, `createBookmarkInput`(strict, allowDuplicate 없음), `updateBookmarkInput`, `bookmarkId`, `Bookmark` 타입
   - [x] 단위 테스트 45개 통과 (`pnpm --filter @baro/shared test`): 위험 스킴 8종 거부, 정규화, 필드 규칙
-- [ ] BM-01~05: `/bookmarks` CRUD, URL 정규화·중복 검사
+- [x] BM-01~05: `/bookmarks` CRUD, URL 정규화·중복 검사 (`lib/bookmarks.ts`, 라우트 2개)
+  - [x] 통합 테스트 8개(가짜 사용자 A·B, 실제 DB): 남의 북마크 GET·PATCH·DELETE 404, 남의 groupId GROUP_NOT_FOUND, 같은 URL 409 + existingId, 동시 추가 5개 → 1개만 생성, 동시 수정 경쟁 → 409(catch 경로 실제 통과 확인)
+  - [x] 실제 토큰 HTTP 확인(로컬 개발 서버): 위 항목 + `javascript:` 400 INVALID_URL, `allowDuplicate` 400, JSON 아님 400, id 형식 오류 404, 목록에 남의 것 없음
+  - [ ] 운영(Vercel) 배포 후 확인
 - [ ] `/metadata` + SSRF 차단
 - [ ] `/tokens` 3종, 토큰 해시 저장, 인증 미들웨어
 - [ ] `/sync/chrome` (full/partial, 트랜잭션)

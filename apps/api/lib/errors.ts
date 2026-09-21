@@ -21,6 +21,20 @@ export const ERROR_CODES = {
 
 export type ErrorCode = keyof typeof ERROR_CODES
 
+/**
+ * 처리 중에 던지는 API 오류. withAuth가 받아서 { error: { code, message, details } } 응답으로 바꾼다.
+ * withUserDb 안에서 던지면 트랜잭션도 롤백된다
+ */
+export class ApiError extends Error {
+  constructor(
+    readonly code: ErrorCode,
+    message: string,
+    readonly details?: unknown
+  ) {
+    super(message)
+  }
+}
+
 export function fail(code: ErrorCode, message: string, details?: unknown) {
   return NextResponse.json({ error: { code, message, details } }, { status: ERROR_CODES[code] })
 }

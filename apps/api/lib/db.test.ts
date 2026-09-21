@@ -9,6 +9,9 @@ import type { AuthContext } from './auth'
 import { assertUserContext, withUserDb } from './db'
 import { closeRawDb, getRawDb } from './db-client'
 
+// 연결 1개로 고정한다. 마지막 테스트('트랜잭션 후 원복')는 같은 연결을 다시 써야 의미가 있다
+process.env.DB_POOL_MAX = '1'
+
 // 존재하지 않는 사용자. 서명 검증을 마친 토큰에서 나온 것처럼 claims를 만든다
 function fakeAuth(): AuthContext {
   const userId = randomUUID()
