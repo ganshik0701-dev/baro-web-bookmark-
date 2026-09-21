@@ -41,6 +41,7 @@ Next.js Route Handler, 기본 경로 `/api/v1`, JSON.
 로그인은 앱이 시스템 브라우저로 Supabase OAuth URL을 열고(PKCE), 루프백 서버가 `code`를 받는다.
 코드 교환과 토큰 갱신은 **앱 메인 프로세스가 Supabase Auth와 직접** 한다(`POST /auth/v1/token?grant_type=pkce`, `grant_type=refresh_token`).
 PKCE의 `code_verifier`는 만든 쪽이 써야 하고 앱 밖으로 나가면 안 되므로, 이 API에는 인증 교환·갱신 엔드포인트를 두지 않는다.
+루프백 콜백에 별도 `state`는 붙이지 않는다. 끼워 넣은 code는 앱의 `code_verifier`와 맞지 않아 교환에서 실패하므로 PKCE가 CSRF 방어를 맡는다.
 이 API는 교환이 끝난 액세스 토큰을 `Authorization: Bearer`로 받아 검증만 한다. **DB 접근은 예외 없이 이 API를 지난다.**
 
 ## GET /bookmarks
