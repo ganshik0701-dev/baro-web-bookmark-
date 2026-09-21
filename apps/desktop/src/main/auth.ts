@@ -3,6 +3,7 @@
 //       → /callback?code=... 수신 → POST /auth/v1/token?grant_type=pkce → 세션을 메모리에 둔다.
 // AUTH-02: 리프레시 토큰은 safeStorage로 암호화해 저장하고(token-store.ts), 앱 시작 시 그걸로 자동 로그인한다.
 //          액세스 토큰 만료 전에 grant_type=refresh_token으로 직접 갱신한다.
+// SCR-01: 브라우저 대기 중인 로그인은 cancelLogin()으로 끝낼 수 있다(브라우저 창을 닫아 버린 경우).
 // AUTH-03: 로그아웃은 로컬(메모리·타이머·파일)을 먼저 비우고, 그다음 서버에 이 세션만 무효화를 요청한다.
 // code_verifier와 토큰은 이 파일(메인 프로세스) 밖으로 나가지 않는다. 로그에도 찍지 않는다.
 import { createServer, type Server, type ServerResponse } from 'node:http'
@@ -51,6 +52,8 @@ let generation = 0
 let refreshTimer: NodeJS.Timeout | null = null
 // 로그인 버튼을 여러 번 눌러도 루프백 서버는 하나만 띄운다
 let pendingLogin: Promise<AuthStatus> | null = null
+// 콜백을 기다리는 동안만 채워진다. 부르면 대기를 '취소됨'으로 끝내고 루프백 서버를 닫는다
+let cancelWaiting: (() => void) | null = null
 // 갱신도 한 번에 하나만. rotation 때문에 같은 토큰으로 두 번 보내면 안 된다
 let pendingRefresh: Promise<void> | null = null
 // 로그아웃 버튼을 여러 번 눌러도 한 번만 처리한다
@@ -108,8 +111,10 @@ export function login(): Promise<AuthStatus> {
         return getAuthStatus()
       },
       (err: unknown) => {
-        // 실패해도 기존 세션은 건드리지 않는다. 화면은 lastAttempt로만 실패를 보여준다
-        record('login', err)
+        // 실패해도 기존 세션은 건드리지 않는다. 화면은 lastAttempt로만 실패를 보여준다.
+        // 취소는 사용자가 고른 것이라 실패로 남기지 않는다(이전 실패 문구도 지운다)
+        if (err instanceof LoginCancelled) lastAttempt = null
+        else record('login', err)
         throw err
       }
     )
@@ -119,6 +124,13 @@ export function login(): Promise<AuthStatus> {
     })
   return pendingLogin
 }
+
+/** 브라우저 대기 중이면 끝낸다. 토큰 교환이 이미 시작됐으면 아무것도 하지 않는다 */
+export function cancelLogin(): void {
+  cancelWaiting?.()
+}
+
+class LoginCancelled extends Error {}
 
 // 새 토큰을 받았을 때만 부른다. Supabase는 갱신할 때마다 리프레시 토큰을 바꾸므로(rotation)
 // 받자마자 파일도 바꿔야 한다. curl 확인: 바로 전 토큰은 재사용하면 최신 토큰을 돌려주지만,
@@ -278,6 +290,7 @@ async function startCallbackServer(): Promise<{ server: Server; port: number; co
   const settle = (fn: () => void): void => {
     if (settled) return
     settled = true
+    cancelWaiting = null
     clearTimeout(timer)
     server.close()
     fn()
@@ -318,8 +331,14 @@ async function startCallbackServer(): Promise<{ server: Server; port: number; co
   const timer = setTimeout(() => {
     settle(() => rejectCode(new Error('로그인 대기 시간(2분)이 지났습니다')))
   }, LOGIN_TIMEOUT_MS)
-  // 브라우저 열기에 실패해 서버를 먼저 닫는 경우에도 타이머가 남지 않게 한다
-  server.once('close', () => clearTimeout(timer))
+  // 브라우저 열기에 실패해 서버를 먼저 닫는 경우에도 타이머·취소 함수가 남지 않게 한다
+  server.once('close', () => {
+    clearTimeout(timer)
+    cancelWaiting = null
+  })
+  cancelWaiting = () => settle(() => rejectCode(new LoginCancelled('로그인을 취소했습니다')))
+  // 브라우저를 여는 중에 취소하면 code를 await하기 전에 거절된다. 처리되지 않은 거절 경고를 막는다
+  code.catch(() => undefined)
 
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject)

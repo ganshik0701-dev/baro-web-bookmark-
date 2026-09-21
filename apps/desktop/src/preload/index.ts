@@ -11,6 +11,8 @@ const api = {
   // AUTH-01. 시스템 브라우저로 Google 로그인. 끝나면(또는 2분 뒤) 결과가 온다
   login: (): Promise<AuthStatus> => ipcRenderer.invoke('auth:login'),
   getAuthStatus: (): Promise<AuthStatus> => ipcRenderer.invoke('auth:status'),
+  // SCR-01. 브라우저 대기 중인 로그인 취소
+  cancelLogin: (): Promise<void> => ipcRenderer.invoke('auth:cancelLogin'),
   // AUTH-03. 세션이 없어도 저장된 로그인(파일)이 있으면 지운다
   logout: (): Promise<AuthStatus> => ipcRenderer.invoke('auth:logout'),
   // AUTH-02. 자동 로그인·갱신으로 상태가 바뀌면 불린다. 반환값을 부르면 구독을 끊는다

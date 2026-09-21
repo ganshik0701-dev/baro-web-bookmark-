@@ -12,19 +12,38 @@
   --success: #3f7a5e;
   --danger: #8c2f1b;
 
+  /* 글자 타일 팔레트. 글자는 흰색 */
+  --tile-1: #2b3a67;
+  --tile-2: #a8481a;
+  --tile-3: #2f5d50;
+  --tile-4: #6b3f8c;
+  --tile-5: #8a4b1f;
+  --tile-6: #1f5468;
+  --tile-7: #7a3b6b;
+  --tile-8: #4a4640;
+
+  /* 글꼴은 앱에 들어 있다(main.tsx). 뒤의 이름들은 파일을 못 읽었을 때의 대비용 */
   --font-serif: 'Gowun Batang', serif;
   --font-sans: 'IBM Plex Sans KR', 'Malgun Gothic', system-ui, sans-serif;
 
   --radius-card: 18px;
+  --radius-card-lg: 22px;
   --radius-control: 12px;
   --space-page: 28px;
   --control-height: 44px;
+  --control-height-secondary: 40px;
 }
 
 *,
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
 }
 
 body {
@@ -36,21 +55,15 @@ body {
   line-height: 1.7;
 }
 
-.page {
-  max-width: 640px;
-  padding: 48px var(--space-page);
+/* 화면 전환 때 포커스를 받는 제목. 키보드로 온 것이 아니므로 테두리는 그리지 않는다 */
+h1[tabindex='-1']:focus {
+  outline: none;
 }
 
-.logo {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-size: 27px;
-  font-weight: 700;
-  color: var(--accent);
-}
+/* ---------- 공용 ---------- */
 
 .card {
-  margin-top: 24px;
+  margin-top: 16px;
   padding: 22px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -63,41 +76,39 @@ body {
   font-weight: 600;
 }
 
-.muted {
-  color: var(--text-muted);
-}
-
 .caption {
   margin: 4px 0 16px;
   font-size: 12.5px;
   color: var(--text-subtle);
 }
 
-.button-primary {
-  height: var(--control-height);
-  padding: 0 18px;
-  border: 0;
+.card-status {
+  min-height: 1.7em;
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.button-secondary {
+  height: var(--control-height-secondary);
+  padding: 0 16px;
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
-  background: var(--accent);
-  color: #fff;
+  background: var(--surface);
+  color: var(--text);
   font: inherit;
   font-weight: 500;
   cursor: pointer;
 }
 
-.button-primary:disabled {
+button:disabled {
   opacity: 0.6;
   cursor: default;
 }
 
-.button-primary:focus-visible {
+button:focus-visible {
   outline: 2px solid var(--text);
   outline-offset: 2px;
-}
-
-.status {
-  min-height: 1.7em;
-  margin: 12px 0 0;
 }
 
 .success {
@@ -106,4 +117,219 @@ body {
 
 .danger {
   color: var(--danger);
+}
+
+/* ---------- 로딩 ---------- */
+
+.loading {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-text {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+/* ---------- SCR-01 로그인 ---------- */
+
+.login {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.login-main {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 72px;
+  padding: 0 var(--space-page);
+}
+
+.login-intro {
+  width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.login-logo {
+  margin: 0 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-serif);
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  line-height: 1.2;
+}
+
+.logo-mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-tagline {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.55;
+}
+
+.login-desc {
+  margin: 0 0 6px;
+  color: var(--text-muted);
+}
+
+.button-login {
+  width: 100%;
+  height: var(--control-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.google-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.login-note {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-subtle);
+}
+
+.login-intro .button-secondary {
+  align-self: flex-start;
+}
+
+/* 비어 있어도 숨기지 않는다(display:none이면 스크린리더가 나중에 들어온 문구를 놓칠 수 있다) */
+.login-error {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--danger);
+}
+
+.login-preview {
+  width: 300px;
+  height: 300px;
+  flex-shrink: 0;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card-lg);
+}
+
+.preview-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: var(--text-subtle);
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px 10px;
+}
+
+.preview-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.preview-tile {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.preview-label {
+  width: 46px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+.login-footer {
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-page);
+  font-size: 12px;
+  color: var(--text-subtle);
+}
+
+/* 최소 창 너비(800px)에서는 두 칸이 들어가지 않는다. 미리보기는 그림일 뿐이라 뺀다 */
+@media (max-width: 900px) {
+  .login-preview {
+    display: none;
+  }
+}
+
+/* ---------- 로그인 후 임시 화면 ---------- */
+
+.home {
+  max-width: 640px;
+  padding: 48px var(--space-page);
+}
+
+.home-logo {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 27px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.home-email {
+  margin: 8px 0 0;
+  font-weight: 500;
+}
+
+.home-note {
+  margin: 16px 0 0;
+  font-size: 12.5px;
+  color: var(--text-subtle);
 }

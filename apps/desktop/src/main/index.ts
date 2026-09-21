@@ -1,7 +1,7 @@
 import { app, BrowserWindow, shell, ipcMain } from 'electron'
 import { join } from 'node:path'
 import type { ApiFailure, ApiSuccess, HealthResponse } from '@baro/shared'
-import { getAuthStatus, initAuth, login, logout, onAuthChange } from './auth'
+import { cancelLogin, getAuthStatus, initAuth, login, logout, onAuthChange } from './auth'
 
 // API 서버 주소 (apps/desktop/.env의 VITE_API_BASE_URL, 공개값). 렌더러에게서 주소를 받지 않는다.
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1'
@@ -80,6 +80,8 @@ function registerIpc(): void {
     return status
   })
   ipcMain.handle('auth:status', () => getAuthStatus())
+  // SCR-01. 브라우저 대기 중인 로그인을 끝낸다(auth:login이 '취소됨'으로 끝난다)
+  ipcMain.handle('auth:cancelLogin', () => cancelLogin())
   // AUTH-03. 로컬 로그아웃은 항상 된다. 서버 무효화 결과는 lastAttempt로 알린다
   ipcMain.handle('auth:logout', () => logout())
 }
