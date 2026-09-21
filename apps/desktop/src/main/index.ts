@@ -1,6 +1,7 @@
 import { app, BrowserWindow, shell, ipcMain } from 'electron'
 import { join } from 'node:path'
 import type { ApiFailure, ApiSuccess, HealthResponse } from '@baro/shared'
+import { getAuthStatus, login } from './auth'
 
 // API 서버 주소 (apps/desktop/.env의 VITE_API_BASE_URL, 공개값). 렌더러에게서 주소를 받지 않는다.
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1'
@@ -70,6 +71,15 @@ function registerIpc(): void {
   // 인자를 받지 않는다. 렌더러가 다른 주소·경로로 요청을 보낼 방법이 없게 하기 위해서다.
   // 4주차 이후 API마다 이런 좁은 핸들러를 하나씩 추가한다 (범용 'api:fetch' 같은 것은 만들지 않는다).
   ipcMain.handle('api:health', () => callApi<HealthResponse>('/health'))
+
+  // AUTH-01. 렌더러는 로그인 여부·이메일·만료 시각만 받는다. 토큰은 넘기지 않는다
+  ipcMain.handle('auth:login', async (event) => {
+    const status = await login()
+    // 브라우저에서 돌아온 사용자가 바로 앱을 보도록 창을 앞으로 가져온다
+    BrowserWindow.fromWebContents(event.sender)?.focus()
+    return status
+  })
+  ipcMain.handle('auth:status', () => getAuthStatus())
 }
 
 app.whenReady().then(() => {

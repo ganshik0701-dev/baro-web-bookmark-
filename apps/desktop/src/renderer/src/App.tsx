@@ -1,7 +1,7 @@
 // 1주차 확인용 화면: preload(IPC)와 API 연결이 둘 다 되는지만 본다.
 // 3주차에 로그인 화면(SCR-01), 6주차에 아이콘 그리드(BookmarkGrid)로 바뀐다.
 import { useEffect, useState } from 'react'
-import type { HealthResponse } from '@baro/shared'
+import type { AuthStatus, HealthResponse } from '@baro/shared'
 
 // 화면에 주소를 보여주는 용도로만 쓴다. 실제 요청은 메인 프로세스가 같은 값으로 보낸다
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1'
@@ -12,14 +12,40 @@ type HealthState =
   | { kind: 'ok'; data: HealthResponse }
   | { kind: 'error'; message: string }
 
+// AUTH-01 확인용. 로그인 화면(SCR-01)이 생기면 그쪽으로 옮긴다
+type LoginState =
+  | { kind: 'loading' }
+  | { kind: 'done'; status: AuthStatus }
+  | { kind: 'error'; message: string }
+
 export default function App() {
   const [version, setVersion] = useState<string | null>(null)
   const [health, setHealth] = useState<HealthState>({ kind: 'idle' })
+  const [auth, setAuth] = useState<LoginState>({ kind: 'loading' })
 
   // 메인 프로세스에 IPC로 버전을 물어본다 (window.baro → preload → ipcMain.handle)
   useEffect(() => {
     window.baro.getVersion().then(setVersion, () => setVersion('알 수 없음'))
   }, [])
+
+  useEffect(() => {
+    window.baro.getAuthStatus().then(
+      (status) => setAuth({ kind: 'done', status }),
+      () => setAuth({ kind: 'done', status: { loggedIn: false } })
+    )
+  }, [])
+
+  async function startLogin() {
+    setAuth({ kind: 'loading' })
+    try {
+      // 메인 프로세스가 브라우저를 열고, 로그인이 끝날 때까지(최대 2분) 기다린다
+      setAuth({ kind: 'done', status: await window.baro.login() })
+    } catch (err) {
+      // IPC 에러는 "Error invoking remote method 'auth:login': Error: ..." 모양이라 뒷부분만 보여준다
+      const message = err instanceof Error ? err.message.replace(/^.*Error: /, '') : String(err)
+      setAuth({ kind: 'error', message })
+    }
+  }
 
   async function checkHealth() {
     setHealth({ kind: 'loading' })
@@ -62,6 +88,30 @@ export default function App() {
             </span>
           )}
           {health.kind === 'error' && <span className="danger">실패 · {health.message}</span>}
+        </p>
+      </section>
+
+      <section className="card" aria-labelledby="auth-title">
+        <h2 id="auth-title" className="section-title">
+          Google 로그인
+        </h2>
+        <button
+          type="button"
+          className="button-primary"
+          onClick={startLogin}
+          disabled={auth.kind === 'loading'}
+        >
+          Google로 계속하기
+        </button>
+        <p role="status" className="status">
+          {auth.kind === 'loading' && '브라우저에서 로그인을 기다리는 중…'}
+          {auth.kind === 'done' && !auth.status.loggedIn && '로그인 전'}
+          {auth.kind === 'done' && auth.status.loggedIn && (
+            <span className="success">
+              {auth.status.email} · 토큰 만료 {new Date(auth.status.expiresAt * 1000).toLocaleTimeString()}
+            </span>
+          )}
+          {auth.kind === 'error' && <span className="danger">실패 · {auth.message}</span>}
         </p>
       </section>
     </main>
