@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type { ApiFailure, ApiSuccess, AuthStatus, HealthResponse } from '@baro/shared'
 
 // 렌더러에 노출하는 유일한 통로. 여기에 없는 기능은 렌더러에서 쓸 수 없다.
@@ -10,7 +10,13 @@ const api = {
   getHealth: (): Promise<ApiSuccess<HealthResponse> | ApiFailure> => ipcRenderer.invoke('api:health'),
   // AUTH-01. 시스템 브라우저로 Google 로그인. 끝나면(또는 2분 뒤) 결과가 온다
   login: (): Promise<AuthStatus> => ipcRenderer.invoke('auth:login'),
-  getAuthStatus: (): Promise<AuthStatus> => ipcRenderer.invoke('auth:status')
+  getAuthStatus: (): Promise<AuthStatus> => ipcRenderer.invoke('auth:status'),
+  // AUTH-02. 자동 로그인·갱신으로 상태가 바뀌면 불린다. 반환값을 부르면 구독을 끊는다
+  onAuthChanged: (fn: (status: AuthStatus) => void): (() => void) => {
+    const listener = (_event: IpcRendererEvent, status: AuthStatus): void => fn(status)
+    ipcRenderer.on('auth:changed', listener)
+    return () => ipcRenderer.removeListener('auth:changed', listener)
+  }
   // 5주차에 readChromeBookmarks(), listChromeProfiles() 가 여기에 추가된다
 }
 
