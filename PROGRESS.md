@@ -3,12 +3,11 @@
 전체 계획의 현재 상태. 작업이 끝날 때마다 여기 체크박스를 채운다.
 상세 내용은 `docs/05-roadmap.md`, 작업 지시 문구는 `docs/06-prompts.md`.
 
-마지막 갱신: 2026-09-21 (4주차: API 인증(JWKS) + 사용자 권한 DB 접근(withUserDb) 완료)
+마지막 갱신: 2026-09-21 (4주차: BM-01~05용 Zod 스키마 + 단위 테스트)
 
 **다음 작업 (순서대로)**
-1. packages/shared: Zod 스키마 (BM-01~05용만. zod는 이미 설치됨)
-2. BM-01~05: `/bookmarks` CRUD, URL 정규화·중복 검사
-3. `/metadata` + SSRF 차단
+1. BM-01~05: `/bookmarks` CRUD, URL 정규화·중복 검사
+2. `/metadata` + SSRF 차단
 
 ---
 
@@ -93,8 +92,15 @@
   - [x] 실제 토큰 헤더 ES256 + JWKS와 같은 kid, `GET /me` 200 (개발 서버 반복 호출 약 70~120ms)
 - [x] DB 접근 방식 C: `withUserDb` (트랜잭션마다 role=authenticated + request.jwt.claims, `current_user`·`auth.uid()` 확인 가드)
   - [x] `lib/db.test.ts` 4개 통과(트랜잭션 풀러 6543): 역할 전환·가드 동작·RLS 0행·트랜잭션 후 권한 원복
-  - [x] `DATABASE_POOLER_URL` .env·Vercel 입력, Vercel 리전 Seoul 확인
-- [ ] packages/shared: Zod 스키마 (+ zod 설치)
+  - [x] `DATABASE_POOLER_URL` .env·Vercel 입력
+- [x] 운영(Vercel)에서 `GET /me` 200, 서명 변조 토큰 401 INVALID_TOKEN
+  - Vercel `SUPABASE_URL` 문제로 처음엔 모든 인증 요청이 500 → 원인 불명, 변수를 지우고 다시 넣어 해결
+- [x] Vercel 함수 리전 `icn1`(서울) 고정 (`apps/api/vercel.json`)
+  - 대시보드 설정만으로는 `iad1`(미국 동부) 그대로였음 → 코드로 고정, 응답 헤더 `icn1::icn1` 확인
+  - 운영 `/me` 반복 호출 약 1.5초(iad1) → 약 60ms(icn1)
+- [x] packages/shared: Zod 스키마 (BM-01~05용만. zod 3.25는 이미 설치돼 있었음)
+  - [x] `httpUrl`(https:// 자동 부착, http/https만), `normalizeUrl`, `createBookmarkInput`(strict, allowDuplicate 없음), `updateBookmarkInput`, `bookmarkId`, `Bookmark` 타입
+  - [x] 단위 테스트 45개 통과 (`pnpm --filter @baro/shared test`): 위험 스킴 8종 거부, 정규화, 필드 규칙
 - [ ] BM-01~05: `/bookmarks` CRUD, URL 정규화·중복 검사
 - [ ] `/metadata` + SSRF 차단
 - [ ] `/tokens` 3종, 토큰 해시 저장, 인증 미들웨어
