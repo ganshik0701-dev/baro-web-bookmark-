@@ -3,10 +3,10 @@
 전체 계획의 현재 상태. 작업이 끝날 때마다 여기 체크박스를 채운다.
 상세 내용은 `docs/05-roadmap.md`, 작업 지시 문구는 `docs/06-prompts.md`.
 
-마지막 갱신: 2026-09-21 (SCR-01 완료, 3주차 완료)
+마지막 갱신: 2026-09-21 (4주차: API 인증(JWKS) + 사용자 권한 DB 접근(withUserDb) 완료)
 
 **다음 작업 (순서대로)**
-1. packages/shared: Zod 스키마 (+ zod 설치)
+1. packages/shared: Zod 스키마 (BM-01~05용만. zod는 이미 설치됨)
 2. BM-01~05: `/bookmarks` CRUD, URL 정규화·중복 검사
 3. `/metadata` + SSRF 차단
 
@@ -88,6 +88,12 @@
 
 ## 4주차 — 북마크 API + 확장
 
+- [x] API 인증(앱 토큰): JWKS(ES256)로 서명 직접 검증, `withAuth` (`baro_` 토큰은 자리만)
+  - [x] 위조 ES256(진짜 kid)·HS256·alg none·형식 오류·서명 한 글자 변조 → 401 INVALID_TOKEN, 헤더 없음·Basic → 401 UNAUTHORIZED
+  - [x] 실제 토큰 헤더 ES256 + JWKS와 같은 kid, `GET /me` 200 (개발 서버 반복 호출 약 70~120ms)
+- [x] DB 접근 방식 C: `withUserDb` (트랜잭션마다 role=authenticated + request.jwt.claims, `current_user`·`auth.uid()` 확인 가드)
+  - [x] `lib/db.test.ts` 4개 통과(트랜잭션 풀러 6543): 역할 전환·가드 동작·RLS 0행·트랜잭션 후 권한 원복
+  - [x] `DATABASE_POOLER_URL` .env·Vercel 입력, Vercel 리전 Seoul 확인
 - [ ] packages/shared: Zod 스키마 (+ zod 설치)
 - [ ] BM-01~05: `/bookmarks` CRUD, URL 정규화·중복 검사
 - [ ] `/metadata` + SSRF 차단

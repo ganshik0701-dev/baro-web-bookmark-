@@ -73,6 +73,7 @@ TypeScript / Electron 33 + electron-vite / React 19 + Vite / Tailwind CSS + shad
 ## API 보안
 
 - 모든 테이블 RLS 적용 + API 쿼리에도 `user_id` 조건을 직접 붙인다
+- API는 요청마다 사용자 권한(`authenticated` 역할 + 검증한 토큰의 claims)으로 RLS를 켠 트랜잭션 안에서만 쿼리한다(`withUserDb`). 서비스 키로 쿼리하지 않는다
 - `/metadata`는 사설 IP(10.x, 172.16~31.x, 192.168.x, 127.x, 169.254.x)와 localhost를 차단한다(SSRF). 리다이렉트 3회 제한, 응답 1MB·3초 제한
 - `http`/`https`가 아닌 URL(`javascript:`, `data:`)은 저장도 실행도 거부한다
 - API 토큰은 원본을 저장하지 않고 SHA-256 해시만 저장한다

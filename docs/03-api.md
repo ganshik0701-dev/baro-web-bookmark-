@@ -5,6 +5,9 @@ Next.js Route Handler, 기본 경로 `/api/v1`, JSON.
 ## 공통 규칙
 
 - 인증: 앱은 `Authorization: Bearer <Supabase 액세스 토큰>`, 확장은 `Authorization: Bearer baro_<API 토큰>`. 서버는 접두사로 구분한다
+  - 액세스 토큰은 서버가 직접 서명을 검증한다: 프로젝트 JWKS(`<SUPABASE_URL>/auth/v1/.well-known/jwks.json`), 알고리즘 `ES256`, `iss` = `<SUPABASE_URL>/auth/v1`, `aud` = `authenticated`, `role` = `authenticated`, `sub` = uuid. Supabase에 요청마다 묻지 않는다(로그아웃한 토큰도 만료 전까지는 통과한다. 액세스 토큰 수명 1시간)
+  - 헤더가 없으면 `401 UNAUTHORIZED`, 서명·만료·발급자·대상이 틀리면 `401 INVALID_TOKEN`
+- DB 접근: 요청마다 트랜잭션을 열고 `SET LOCAL ROLE authenticated` + `request.jwt.claims`(검증한 토큰의 claims)를 넣은 뒤 쿼리한다. RLS가 API 경로에서도 적용되고, 쿼리에는 `user_id` 조건도 직접 붙인다(docs/02-db.md). 서비스 키는 쓰지 않는다
 - 성공: `{ "data": ... }`, 목록은 `{ "data": [...], "meta": { "total": 120 } }`
 - 실패: `{ "error": { "code": "BOOKMARK_NOT_FOUND", "message": "북마크를 찾을 수 없습니다" } }`
 - 시간: ISO 8601 UTC
@@ -44,10 +47,24 @@ PKCE의 `code_verifier`는 만든 쪽이 써야 하고 앱 밖으로 나가면 �
 루프백 콜백에 별도 `state`는 붙이지 않는다. 끼워 넣은 code는 앱의 `code_verifier`와 맞지 않아 교환에서 실패하므로 PKCE가 CSRF 방어를 맡는다.
 이 API는 교환이 끝난 액세스 토큰을 `Authorization: Bearer`로 받아 검증만 한다. **DB 접근은 예외 없이 이 API를 지난다.**
 
+## GET /me
+
+내 프로필·설정. 인증·DB 권한 전환이 함께 동작하는지 확인하는 첫 엔드포인트이기도 하다.
+
+```json
+{ "data": {
+  "id": "u1...", "email": "a@example.com", "displayName": "홍길동", "avatarUrl": "https://...",
+  "sortOption": "created_desc", "openMode": "new_tab", "theme": "system",
+  "autoSync": true, "chromeProfile": null, "lastSyncedAt": null
+} }
+```
+profiles 행이 없으면(가입 트리거가 실패한 경우 등) `401 INVALID_TOKEN`을 돌려준다. 서명은 맞지만 이 서비스의 사용자로 등록되지 않은 토큰으로 본다.
+
 ## GET /bookmarks
 
 쿼리: `sort`(created_desc 기본 / visits_30d / visited_desc / title_asc / custom), `groupId`(uuid 또는 `none`), `tag`.
 검색어 필터는 클라이언트에서 하므로 한 번에 전체를 받는다. 고정된 북마크가 항상 앞에 온다.
+4주차(BM-01~05)에는 `created_desc`만, 쿼리 없이 구현한다. 정렬 5종·필터는 SEARCH-04에서 붙인다.
 
 ```json
 {
@@ -72,13 +89,15 @@ PKCE의 `code_verifier`는 만든 쪽이 써야 하고 앱 밖으로 나가면 �
 | groupId | uuid | 아니요 | 본인 그룹 |
 | tags | string[] | 아니요 | 10개, 각 20자 |
 | iconUrl | string | 아니요 | https |
-| allowDuplicate | boolean | 아니요 | true면 중복 허용 |
 
-`201 Created` + 생성된 북마크. 중복이고 allowDuplicate가 아니면 `409 DUPLICATE_URL` + 기존 id.
+`201 Created` + 생성된 북마크.
+- 제목이 없으면 도메인(`github.com`)을 제목으로 쓴다. 서버는 페이지를 가져오지 않는다. 제목 자동 채움은 앱이 저장 전에 `/metadata`로 한다
+- 같은 사용자에게 정규화 URL이 같은 북마크가 있으면 `409 DUPLICATE_URL`, `details: { "existingId": "b1..." }`. 중복 저장은 허용하지 않는다(DB 제약 `uq_bm_user_url`). 앱은 "기존 북마크 열기/수정 또는 취소"를 고르게 한다
+- `groupId`가 내 그룹이 아니면 `404 GROUP_NOT_FOUND` (FK 검사는 RLS를 받지 않으므로 코드에서 확인한다)
 
 ## PATCH /bookmarks/:id
 
-POST와 같은 필드(모두 선택) + `isPinned`. `200 OK` + 수정된 북마크.
+POST와 같은 필드(모두 선택, 최소 1개) + `isPinned`. `200 OK` + 수정된 북마크. URL을 바꿔 다른 북마크와 겹치면 `409 DUPLICATE_URL`.
 
 ## POST /bookmarks/:id/visit
 
