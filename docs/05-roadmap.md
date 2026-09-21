@@ -32,7 +32,7 @@ MVP 8주, v1.1 11주. 마감보다 각 주차의 학습 포인트를 이해하�
 
 - [ ] Google Cloud Console에서 OAuth 클라이언트 생성, Supabase Auth에 연결
 - [ ] 메인 프로세스 루프백 서버(`http://127.0.0.1:<포트>/callback`)
-- [ ] 시스템 브라우저 열기 → 코드 수신 → `POST /auth/exchange`
+- [ ] 시스템 브라우저 열기 → 코드 수신 → 메인 프로세스가 Supabase Auth와 직접 교환 (`POST /auth/v1/token?grant_type=pkce`)
 - [ ] 리프레시 토큰 `safeStorage` 저장, 앱 시작 시 자동 로그인 (AUTH-02)
 - [ ] 로그아웃 (AUTH-03), 로그인 화면 SCR-01
 

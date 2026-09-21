@@ -114,8 +114,10 @@ docs/01-spec.md의 AUTH-01을 구현해줘.
 
 - src/main/auth.ts: 임의 포트로 로컬 http 서버를 띄우고,
   Supabase Google OAuth URL을 shell.openExternal로 연다 (PKCE)
-- 콜백으로 받은 code를 apps/api의 POST /auth/exchange로 넘겨 세션을 받는다
-- apps/api에 /auth/exchange 라우트를 만든다 (docs/03-api.md 참고)
+- 콜백으로 받은 code를 메인 프로세스가 Supabase Auth와 직접 교환한다
+  (POST /auth/v1/token?grant_type=pkce, 바디 auth_code·code_verifier, apikey 헤더.
+  docs/03-api.md 참고). code_verifier는 메인 프로세스 밖으로 내보내지 않는다
+- apps/api에는 인증 교환 라우트를 만들지 않는다
 - 로그인 성공 시 브라우저에는 "앱으로 돌아가세요" 안내 HTML을 띄우고
   로컬 서버를 닫는다
 - IPC: auth:login, auth:status 를 추가하고 preload에 노출
@@ -138,7 +140,8 @@ docs/01-spec.md의 AUTH-01을 구현해줘.
 AUTH-02와 AUTH-03을 구현해줘.
 
 - 리프레시 토큰을 safeStorage로 암호화해 userData 경로에 저장한다
-- 앱 시작 시 저장된 토큰이 있으면 POST /auth/refresh로 액세스 토큰을 받아
+- 앱 시작 시 저장된 토큰이 있으면 메인 프로세스가 Supabase Auth에 직접
+  POST /auth/v1/token?grant_type=refresh_token 으로 액세스 토큰을 받아
   자동 로그인한다 (액세스 토큰은 메모리에만)
 - 실패하면 토큰을 지우고 로그인 화면으로 보낸다
 - AUTH-03 로그아웃: 저장 토큰 삭제 후 로그인 화면
