@@ -31,7 +31,8 @@
 | 본문 | 14px, line-height 1.7 |
 | 캡션·상태바 | 12~12.5px |
 
-Google Fonts: `Gowun+Batang:wght@400;700`, `IBM+Plex+Sans+KR:wght@400;500;600`
+글꼴은 앱에 넣어 배포한다(`@fontsource/gowun-batang`, `@fontsource/ibm-plex-sans-kr`, 둘 다 OFL). 쓰는 굵기만 넣는다: Gowun Batang 700, IBM Plex Sans KR 400/500/600.
+Google Fonts에서 불러오지 않는다. 오프라인에서도 같은 글꼴로 보이고, 켤 때 기본 글꼴에서 바뀌는 깜빡임이 없고, 실행할 때마다 외부로 요청이 가지 않게 하기 위해서다.
 
 ## 간격·모양
 

@@ -23,8 +23,21 @@ function devCsp(): Plugin {
   }
 }
 
+// @fontsource CSS는 woff2와 woff를 둘 다 가리킨다. Electron(Chromium)은 woff2만 쓰므로
+// woff 참조를 지워 쓰지 않는 파일이 번들에 들어가지 않게 한다
+function woff2Only(): Plugin {
+  return {
+    name: 'baro-woff2-only',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!/[\\/]@fontsource[\\/].*\.css$/.test(id)) return null
+      return code.replace(/,\s*url\([^)]*\.woff\)\s*format\('woff'\)/g, '')
+    }
+  }
+}
+
 export default defineConfig({
   main: { plugins: [externalizeDepsPlugin()] },
   preload: { plugins: [externalizeDepsPlugin()] },
-  renderer: { plugins: [react(), devCsp()] }
+  renderer: { plugins: [woff2Only(), react(), devCsp()] }
 })

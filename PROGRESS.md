@@ -76,6 +76,8 @@
   - [x] 로그아웃 후 재실행 시 자동 로그인 안 됨
 - [ ] SCR-01 로그인 화면
 - [x] 앱 재실행 후에도 로그인 유지 확인
+- [x] 글꼴을 앱에 포함 (`@fontsource`, Gowun Batang 700 / IBM Plex Sans KR 400·500·600, woff2만, Google Fonts·CSP 외부 허용 제거)
+  - [x] 오프라인 실행·빌드 버전(file://)에서 글꼴 표시 확인, `out/` 약 +5.2MB
 
 ## 4주차 — 북마크 API + 확장
 
