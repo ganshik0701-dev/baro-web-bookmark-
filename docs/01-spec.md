@@ -105,6 +105,33 @@ URL 정규화 규칙: 호스트 소문자, 끝 슬래시 제거, `utm_*` 파라�
 | EXT-04 | 동기화 규칙 | `chrome_id`로 매칭. 바로에서 직접 추가한 북마크(`source: manual`)는 건드리지 않음 | P0 |
 | EXT-05 | 현재 페이지 추가 | 확장 아이콘 클릭 시 보고 있는 페이지 추가 | P2 |
 
+### 확장 동작 규칙 (EXT-01~04)
+
+**구조**: Manifest V3. 권한은 `bookmarks`·`storage`만, `host_permissions`는 운영 API(`https://baro-web-bookmark-api.vercel.app/*`)와 로컬 개발 서버(`http://localhost:3000/*`)만. manifest `key`로 확장 ID 고정(개발자 모드 설치). content script 없음.
+- 모든 `fetch`와 `chrome.bookmarks` 읽기는 **서비스 워커에서만** 한다. 팝업은 메시지만 보내고 `chrome.storage.local`의 상태를 읽어 그린다(팝업을 닫았다 열어도 복원)
+- 토큰은 `chrome.storage.local`에만 저장한다(`storage.sync`·`storage.session` 쓰지 않음). 팝업 입력창은 가림 처리, 저장 후엔 끝 4자리만 표시(팝업은 원본을 읽지 않고 서비스 워커가 끝 4자리만 상태에 넣는다). 토큰은 콘솔·오류 메시지에 절대 싣지 않는다
+- 연결 상태: `GET /me`로 확인. `연결됨` / `토큰 무효`(401) / `서버 연결 실패`(네트워크 오류) / `서버 오류`(그 밖)
+- 동기화 상태(`idle` / `syncing` / `needs_confirm` / `done` / `error`)를 storage에 저장한다. 서비스 워커가 다시 시작됐을 때 `syncing`이 남아 있으면(진행 중이던 요청은 이미 사라짐) `error`(중단됨)로 바꾼다
+
+**북마크 → 요청 변환** (docs/03-api.md `/sync/chrome`)
+- `getTree()`의 맨 위 노드(id `0`)와 그 바로 아래 최상위 폴더(북마크바·기타 북마크·모바일 북마크)는 folders에 넣지 않는다. 그 아래 폴더는 전부 folders로, 서버가 경로 이름 그룹(`상위/하위`, 30자 초과는 끝을 살림)을 만든다. 최상위 폴더 바로 아래 북마크는 미분류
+- http/https가 아닌 URL(`javascript:` 북마클릿, `chrome://`, `file://` 등)과 2048자 넘는 URL은 **보내기 전에 걸러내고** 걸러낸 개수를 결과에 보여준다(서버와 같은 규칙: `packages/shared`의 `httpUrl`)
+- `source`는 항상 `extension`. `profile`은 보내지 않는다(확장은 프로필 이름을 알 수 없음. v1은 사용자당 크롬 프로필 하나)
+- 보내기 전에 JSON 바이트 크기를 재서 2MB를 넘으면 보내지 않고 안내한다(서버 413도 같은 안내). 북마크가 5,000개를 넘어도 보내지 않고 안내한다
+
+**전체 동기화(EXT-03)와 409 확인**
+- 팝업의 '전체 동기화' → 서비스 워커가 트리를 읽어 `full` 전송
+- `409 MASS_DELETE_CONFIRM_REQUIRED`면 `needs_confirm`으로 바꾸고 삭제 예정 수·기존 수·미리보기(최대 5개)를 보여준다
+- 확인하면 **북마크를 새로 읽어** `confirmDeleteCount: <보여준 삭제 예정 수>`를 붙여 보낸다. 다시 409면(확인하는 사이 더 지운 경우) 새 숫자로 다시 확인받는다. 자동으로 반복 확인하지 않는다
+- 취소하면 아무 요청도 보내지 않고, '전체 동기화 필요' 표시를 남긴다
+
+**실시간 동기화(EXT-02)**
+- `onCreated`·`onChanged`·`onMoved`·`onRemoved`를 1초 동안 모아 `partial` 한 번으로 보낸다(대기열은 storage에 저장해 서비스 워커가 꺼져도 잃지 않는다)
+- 폴더 이름 변경·이동은 그 폴더의 하위 트리를 함께 보낸다(하위 그룹 이름이 경로라서). 삭제는 `onRemoved`의 노드와 하위 id 전부를 `deletedChromeIds`로
+- 전체 동기화가 `syncing`·`needs_confirm`인 동안은 보내지 않는다(곧 보낼 전체 동기화가 담는다). 이때 생긴 변경은 버리고 '전체 동기화 필요'로 표시한다
+- 크롬 북마크 가져오기(`onImportBegan`~`onImportEnded`) 중의 이벤트는 모으지 않고, 끝나면 전체 동기화를 한 번 한다
+- 토큰이 없으면 아무것도 보내지 않는다
+
 ## 화면 명세
 
 | ID | 화면 | 구성 | 관련 |

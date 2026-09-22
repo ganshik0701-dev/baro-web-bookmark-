@@ -68,6 +68,10 @@ export type SyncChromeInput = z.infer<typeof syncChromeInput>
 
 export type SyncSkippedReasons = { invalidUrl: number; duplicateUrl: number; manualExists: number }
 
+/** 409 MASS_DELETE_CONFIRM_REQUIRED의 details. 확인 화면에서 쓴다 */
+export type MassDeletePreview = { title: string; url: string }
+export type MassDeleteDetails = { deleteCount: number; syncedTotal: number; preview: MassDeletePreview[] }
+
 export type SyncChromeResult = {
   created: number
   updated: number

@@ -245,7 +245,10 @@ describe('대량 삭제 확인', () => {
 
   it('40개 중 20개만 남기면(20개 삭제) 확인 필요, 확인 개수가 같거나 크면 실행', () => {
     const state = bigState()
-    expect(planSync(keep(20), state, 'app_sync').massDelete).toEqual({ deleteCount: 20, syncedTotal: 40, needsConfirm: true })
+    const m = planSync(keep(20), state, 'app_sync').massDelete
+    expect(m).toMatchObject({ deleteCount: 20, syncedTotal: 40, needsConfirm: true })
+    // 미리보기: 지워질 행 앞 5개의 제목·URL만
+    expect(m.preview).toEqual([20, 21, 22, 23, 24].map((i) => ({ title: 't', url: `https://x.example.com/${i}` })))
     expect(planSync(keep(20, { confirmDeleteCount: 20 }), state, 'app_sync').massDelete.needsConfirm).toBe(false)
     expect(planSync(keep(20, { confirmDeleteCount: 25 }), state, 'app_sync').massDelete.needsConfirm).toBe(false)
     // 확인한 뒤 더 지워졌으면(19개만 남김 → 21개 삭제) 다시 확인
@@ -255,7 +258,7 @@ describe('대량 삭제 확인', () => {
   it('manual은 동기화분 수에도 삭제 수에도 들어가지 않는다', () => {
     const state = bigState()
     state.bookmarks.push(...Array.from({ length: 100 }, (_, i) => manual(`https://m.example.com/${i}`, `https://m.example.com/${i}`)))
-    expect(planSync(keep(21), state, 'app_sync').massDelete).toEqual({ deleteCount: 19, syncedTotal: 40, needsConfirm: false })
+    expect(planSync(keep(21), state, 'app_sync').massDelete).toEqual({ deleteCount: 19, syncedTotal: 40, needsConfirm: false, preview: [] })
   })
 })
 

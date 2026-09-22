@@ -14,7 +14,7 @@ Next.js Route Handler, 기본 경로 `/api/v1`, JSON.
 - 실패: `{ "error": { "code": "BOOKMARK_NOT_FOUND", "message": "북마크를 찾을 수 없습니다" } }`
 - 시간: ISO 8601 UTC
 - 응답 필드는 camelCase, DB는 snake_case
-- CORS: `chrome-extension://<확장 ID>`만 허용. 앱은 메인 프로세스(Node)에서 요청하므로 Origin이 없어 CORS와 무관하고, 토큰으로만 검증한다. 렌더러에서 직접 호출하면 Origin이 붙어 CORS에 막힌다
+- CORS: 서버는 CORS 허용 헤더를 보내지 않는다(어떤 웹 페이지도 응답을 읽을 수 없다). 앱은 메인 프로세스(Node)에서 요청하므로 Origin이 없어 CORS와 무관하다. 확장은 서비스 워커에서만 요청하고, MV3 서비스 워커는 `host_permissions`에 있는 주소로는 CORS 없이 요청할 수 있어 허용 목록이 필요 없다(확장 ID는 manifest `key`로 고정해 둔다). 렌더러·팝업·웹 페이지에서 직접 호출하면 CORS에 막힌다. 인증은 토큰으로만 한다
 - 속도 제한: 사용자당 분당 120회, `/metadata` 20회, `/sync/chrome` 10회
 
 ## 엔드포인트
@@ -222,7 +222,8 @@ SSRF 차단 (처음 주소와 **리다이렉트마다** 같은 검사를 한다)
 - 그룹 순서(position)는 처음 만들 때만 정한다(v1.1 탭 순서 변경을 덮어쓰지 않게)
 
 **대량 삭제 확인** (`full`만)
-- 지워질 동기화 북마크 수가 **(기존 동기화 북마크의 절반 이상 그리고 20개 이상) 또는 100개 이상**이면 아무것도 쓰지 않고 `409 MASS_DELETE_CONFIRM_REQUIRED`, `details: { "deleteCount": 300, "syncedTotal": 420 }`
+- 지워질 동기화 북마크 수가 **(기존 동기화 북마크의 절반 이상 그리고 20개 이상) 또는 100개 이상**이면 아무것도 쓰지 않고 `409 MASS_DELETE_CONFIRM_REQUIRED`, `details: { "deleteCount": 300, "syncedTotal": 420, "preview": [{ "title": "GitHub", "url": "https://github.com/" }] }`
+  - `preview`: 지워질 북마크 중 최대 5개의 제목·URL(확인 화면용). 요청한 사용자 자신의 북마크만 담긴다
 - 사용자가 확인하면 같은 요청에 `confirmDeleteCount: <details.deleteCount>`를 붙여 다시 보낸다. 실제 삭제 수가 이 값 **이하**일 때만 실행하고, 더 많으면(확인하는 사이 크롬에서 더 지운 경우) 다시 409
 - 이유: 파일을 일부만 읽은 경우(예: 북마크바만 읽힘)는 클라이언트에게 성공처럼 보인다. 지워진 북마크는 방문 기록까지 사라져 되돌릴 수 없다. 앱이 다른 크롬 프로필로 전체 동기화하는 경우(프로필 교체)도 이 확인에 걸린다
 - 그룹 삭제는 세지 않는다(북마크는 미분류로 남음). `partial`의 `deletedChromeIds`도 세지 않는다(사용자가 크롬에서 직접 지운 이벤트)

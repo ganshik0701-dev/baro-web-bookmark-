@@ -166,16 +166,31 @@ describe.skipIf(!process.env.DATABASE_POOLER_URL)('/sync/chrome (실제 DB)', ()
     await syncChrome(A, request(generateChromeFile(3, 20))) // 60개
     const fewer = generateChromeFile(1, 20) // 첫 폴더 20개만 남음 → 40개 삭제
     const before = JSON.stringify(await state(A.userId))
-    expect(await apiError(syncChrome(A, request(fewer)))).toEqual({
-      code: 'MASS_DELETE_CONFIRM_REQUIRED',
-      details: { deleteCount: 40, syncedTotal: 60 }
-    })
+    const err = await apiError(syncChrome(A, request(fewer)))
+    expect(err).toMatchObject({ code: 'MASS_DELETE_CONFIRM_REQUIRED', details: { deleteCount: 40, syncedTotal: 60 } })
+    const preview = (err.details as { preview: { title: string; url: string }[] }).preview
+    expect(preview).toHaveLength(5)
+    // 지워질 것(2·3번째 폴더)만, 남을 것(첫 폴더 /0/)은 없다
+    for (const p of preview) expect(p.url).toMatch(/^https:\/\/perf\.example\.com\/[12]\//)
     expect(JSON.stringify(await state(A.userId))).toBe(before)
     // 확인한 개수보다 많이 지워야 하면 다시 409
     expect((await apiError(syncChrome(A, request(fewer, { confirmDeleteCount: 39 })))).code).toBe('MASS_DELETE_CONFIRM_REQUIRED')
     const r = await syncChrome(A, request(fewer, { confirmDeleteCount: 40 }))
     expect(r).toMatchObject({ created: 0, deleted: 40 })
     expect((await state(A.userId)).bookmarks).toHaveLength(20)
+  })
+
+  // 확인한 개수(confirmDeleteCount)의 경계. 실제 삭제 40개 기준
+  it.each([
+    [39, 'MASS_DELETE_CONFIRM_REQUIRED', 60], // 확인보다 많이 지워야 함 → 다시 확인
+    [40, null, 20], // 같음 → 실행
+    [41, null, 20] // 확인보다 적게 지움 → 실행(문서: 실제 삭제 수가 확인 값 '이하'일 때 실행)
+  ])('confirmDeleteCount %i (실제 삭제 40)', async (confirm, code, remaining) => {
+    await syncChrome(A, request(generateChromeFile(3, 20)))
+    const run = syncChrome(A, request(generateChromeFile(1, 20), { confirmDeleteCount: confirm }))
+    if (code) expect((await apiError(run)).code).toBe(code)
+    else expect(await run).toMatchObject({ deleted: 40 })
+    expect((await state(A.userId)).bookmarks).toHaveLength(remaining)
   })
 
   it('partial(확장): 추가·수정·삭제만, source는 ext_sync', async () => {

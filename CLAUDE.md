@@ -70,6 +70,13 @@ TypeScript / Electron 33 + electron-vite / React 19 + Vite / Tailwind CSS + shad
 - 리프레시 토큰은 `safeStorage`로 암호화해 저장한다. 평문 파일 저장 금지
 - 북마크는 `shell.openExternal`로 OS 기본 브라우저에서 연다. 앱 내부 창에서 열지 않는다
 
+## 크롬 확장 보안 (반드시 지킬 것)
+
+- 권한은 `bookmarks`·`storage`만. `host_permissions`는 운영 API와 `http://localhost:3000/*`만(와일드카드 금지). content script 만들지 않음
+- 모든 `fetch`와 `chrome.bookmarks` 읽기는 서비스 워커에서만. 팝업은 메시지만 보낸다
+- 토큰은 `chrome.storage.local`에만. 팝업에는 끝 4자리만 넘긴다. 콘솔·오류 메시지에 토큰을 싣지 않는다
+- 동작 규칙 전체는 docs/01-spec.md '확장 동작 규칙'
+
 ## API 보안
 
 - 모든 테이블 RLS 적용 + API 쿼리에도 `user_id` 조건을 직접 붙인다

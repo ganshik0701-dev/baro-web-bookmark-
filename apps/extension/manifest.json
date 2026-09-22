@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "바로 — 크롬 북마크 동기화",
+  "version": "0.1.0",
+  "description": "크롬 북마크를 바로(baro)에 동기화합니다.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAy+sFycTfuv1DMVJzVSkZ8P+sqX4iVmBsz7b2nURWvSOJxXvQmgPQqKn3CKbQOPEn4Od4C7OK5H36eHv5RDEh7oOVUZHvWwfGi9n0KRCz6Xyrn91PvTWsuUV2S3gSaE/5hk3sG+KNga26t7pEQbTCMY1znh6p5b9uUf9AYsRtkXu/rU685R4iJGDZT9fKZTpNx75wj0Ec3nv0saQb3nf7gokvkFsvzg23X2gJBWGnj9FPi9PEqZ5x75K7+jLMTXg5gfBmhw5IDRKNpL53Ozim8AKO1flU2vyUKq023nexVuT+EA76oz7/4WObFjQNY+2+mlXfh1FU+TzpIVNcolsbRQIDAQAB",
+  "permissions": [
+    "bookmarks",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://baro-web-bookmark-api.vercel.app/*",
+    "http://localhost:3000/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "바로"
+  }
+}

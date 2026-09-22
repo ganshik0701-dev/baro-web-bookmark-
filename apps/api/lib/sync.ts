@@ -3,7 +3,7 @@
 // 쿼리 수는 북마크 수와 상관없이 거의 일정하다(500행씩 묶어 쓴다).
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { bookmarks, groups, profiles } from '@baro/db'
-import type { SyncChromeInput, SyncChromeResult } from '@baro/shared'
+import type { MassDeleteDetails, SyncChromeInput, SyncChromeResult } from '@baro/shared'
 import type { AuthContext } from './auth'
 import { withUserDb, type Tx } from './db'
 import { ApiError } from './errors'
@@ -56,11 +56,11 @@ function runSync(auth: AuthContext, input: SyncChromeInput): Promise<SyncChromeR
     const plan = planSync(input, { bookmarks: existingBookmarks, groups: existingGroups }, source)
     if (plan.massDelete.needsConfirm) {
       // 아무것도 쓰지 않았다(여기서 던지면 트랜잭션도 롤백)
-      const { deleteCount, syncedTotal } = plan.massDelete
+      const { deleteCount, syncedTotal, preview } = plan.massDelete
       throw new ApiError(
         'MASS_DELETE_CONFIRM_REQUIRED',
         `크롬에 없는 북마크 ${deleteCount}개를 지우려고 합니다. 확인 후 confirmDeleteCount를 붙여 다시 보내세요`,
-        { deleteCount, syncedTotal }
+        { deleteCount, syncedTotal, preview } satisfies MassDeleteDetails
       )
     }
 

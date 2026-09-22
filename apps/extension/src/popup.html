@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>바로</title>
+<style>
+  :root {
+    --bg: #F7F5F0; --surface: #FFFFFF; --border: #E3DFD5; --border-strong: #C9C3B5;
+    --text: #1A1917; --text-muted: #55524C; --text-subtle: #6B6862;
+    --accent: #A8481A; --success: #3F7A5E; --danger: #8C2F1B;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; width: 340px; background: var(--bg); color: var(--text);
+         font: 13px/1.6 "IBM Plex Sans KR", "Malgun Gothic", system-ui, sans-serif; }
+  header { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 16px 6px; }
+  h1 { margin: 0; font: 700 20px "Gowun Batang", "Batang", serif; color: var(--accent); }
+  .api { font-size: 11px; color: var(--text-subtle); }
+  section { margin: 8px 12px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+  h2 { margin: 0 0 8px; font-size: 13px; font-weight: 600; }
+  .row { display: flex; gap: 6px; align-items: center; }
+  input { flex: 1; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 10px; font: inherit; }
+  button { height: 34px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); font: inherit; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.danger { color: var(--danger); }
+  button:disabled { opacity: .5; cursor: default; }
+  .muted { color: var(--text-muted); } .subtle { color: var(--text-subtle); font-size: 12px; }
+  .ok { color: var(--success); font-weight: 600; } .bad { color: var(--danger); font-weight: 600; }
+  .notice { margin-top: 8px; padding: 6px 10px; border-radius: 8px; background: #FBF1EA; color: var(--accent); font-size: 12px; }
+  ul { margin: 6px 0; padding-left: 18px; } li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hidden { display: none !important; }
+  p { margin: 6px 0; }
+</style>
+</head>
+<body>
+<header><h1>바로</h1><span class="api" id="api"></span></header>
+
+<section>
+  <h2>연결</h2>
+  <div id="token-form" class="row">
+    <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="앱에서 발급한 baro_ 토큰">
+    <button id="save" class="primary">저장</button>
+  </div>
+  <div id="token-saved" class="row hidden">
+    <span class="muted">저장된 토큰 <b id="hint"></b></span>
+    <span style="flex:1"></span>
+    <button id="check">확인</button>
+    <button id="clear" class="danger">지우기</button>
+  </div>
+  <p id="token-error" class="bad hidden" role="alert"></p>
+  <p id="connection" aria-live="polite"></p>
+</section>
+
+<section>
+  <h2>동기화</h2>
+  <div class="row"><button id="full" class="primary" style="flex:1">전체 동기화</button></div>
+  <p id="full-needed" class="notice hidden">동기화되지 않은 변경이 있을 수 있습니다. 전체 동기화를 해 주세요.</p>
+  <div id="status" aria-live="polite"></div>
+  <div id="confirm" class="hidden">
+    <p class="bad" id="confirm-title"></p>
+    <p class="subtle">지워질 북마크 예시</p>
+    <ul id="preview"></ul>
+    <p class="subtle">지우면 방문 기록도 함께 사라져 되돌릴 수 없습니다. 확인하면 북마크를 새로 읽어 다시 보냅니다.</p>
+    <div class="row"><button id="confirm-yes" class="primary" style="flex:1">지우고 동기화</button><button id="confirm-no">취소</button></div>
+  </div>
+  <p id="realtime" class="subtle"></p>
+</section>
+<script type="module" src="popup.js"></script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 // DB를 건드리지 않는 순수 함수다: 요청 + 지금 DB에 있는 내 북마크·그룹 → 추가·수정·삭제·건너뜀 목록.
 // 같은 URL 충돌을 여기서 모두 정리하므로, 쓰기(lib/sync.ts)는 유니크 제약에 걸리지 않는다.
 import { randomUUID } from 'node:crypto'
-import { httpUrl, normalizeUrl, type SyncChromeInput, type SyncSkippedReasons } from '@baro/shared'
+import { httpUrl, normalizeUrl, type MassDeletePreview, type SyncChromeInput, type SyncSkippedReasons } from '@baro/shared'
 import { titleFromUrl } from './bookmarks'
 
 export type DbSource = 'app_sync' | 'ext_sync'
@@ -51,7 +51,7 @@ export type SyncPlan = {
     urlMoves: string[]
   }
   skippedReasons: SyncSkippedReasons
-  massDelete: { deleteCount: number; syncedTotal: number; needsConfirm: boolean }
+  massDelete: { deleteCount: number; syncedTotal: number; needsConfirm: boolean; preview: MassDeletePreview[] }
 }
 
 const GROUP_NAME_MAX = 30
@@ -276,6 +276,12 @@ export function planSync(
     groups: { insert: groupInsert, update: groupUpdate, delete: deletedGroups.map((g) => g.id) },
     bookmarks: { insert, update, delete: toDelete.map((b) => b.id), urlMoves },
     skippedReasons,
-    massDelete: { deleteCount, syncedTotal: synced.length, needsConfirm }
+    // 확인 화면용: 지워질 북마크 앞 5개(요청한 사용자 자신의 행만 들어 있다)
+    massDelete: {
+      deleteCount,
+      syncedTotal: synced.length,
+      needsConfirm,
+      preview: needsConfirm ? toDelete.slice(0, 5).map((b) => ({ title: b.title, url: b.url })) : []
+    }
   }
 }
