@@ -209,9 +209,10 @@ URL만 입력해도 제목이 채워지게 하는 기능이다. 서버가 임의
 ```
 docs/03-api.md의 GET /metadata를 구현해줘.
 
-- cheerio로 <title>, og:title, 파비콘 링크를 추출한다
-- SSRF 방지: DNS 해석 후 사설 IP(10.x, 172.16~31.x, 192.168.x, 127.x, 169.254.x)와
-  localhost를 차단한다. 리다이렉트 3회 제한, 3초 타임아웃, 응답 1MB 제한
+- node-html-parser로 <title>, og:title, 파비콘 링크를 추출한다
+- SSRF 방지: 소켓을 여는 시점에(undici 연결 함수) DNS 해석 후 공인 unicast가 아닌 IP
+  (사설 10.x, 172.16~31.x, 192.168.x, 127.x, 169.254.x 등, ipaddr.js)와 localhost를 차단한다.
+  포트는 80·443만. 리다이렉트는 직접 따라가며 매번 다시 검사, 3회 제한, 3초 타임아웃, 응답 1MB 제한
 - 실패하면 422 METADATA_FETCH_FAILED, 제목은 도메인으로 대체 가능하게 응답
 
 조건:

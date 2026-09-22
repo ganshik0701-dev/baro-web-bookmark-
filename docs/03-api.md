@@ -127,11 +127,24 @@ ids 최대 200개.
 
 ## GET /metadata?url=
 
-HTML의 `<title>`, `og:title`, 파비콘 링크 추출. 3초·1MB·리다이렉트 3회 제한, 사설 IP 차단.
+앱이 북마크를 저장하기 전에 제목·아이콘을 미리 채우려고 부른다. 서버가 사용자 대신 임의의 주소를 여는 구조라 SSRF 차단이 핵심이다. DB는 쓰지 않는다.
 
 ```json
 { "data": { "title": "GitHub", "iconUrl": "https://www.google.com/s2/favicons?domain=github.com&sz=64" } }
 ```
+
+- `url`: POST /bookmarks와 같은 규칙(`httpUrl`: 스킴 없으면 https://, http/https만)
+- `title`: `og:title` → `<title>` 순. 공백을 한 칸으로 줄이고 100자까지 자른다. 둘 다 없으면 `null`(앱은 제목을 비워 저장하고, 서버가 도메인을 쓴다)
+- `iconUrl`: rel에 `icon`이 들어간 `<link>`를 차례로 보며(`apple-touch-icon`은 제외) 최종 주소(또는 `<base href>`) 기준으로 풀어 **https인 첫 주소**를 쓴다. 없으면 Google 파비콘 주소(`?domain=<최종 호스트>&sz=64`). 서버는 아이콘을 받아 보지 않는다
+- 가져오기 제한: 전체 3초, 본문 1MB까지만 읽고 나머지는 버린다(제목은 앞부분에 있다), `Content-Type`이 `text/html`일 때만 파싱, 리다이렉트는 서버가 직접 따라가며 최대 3회
+- 문자 인코딩: `Content-Type`의 charset → `<meta charset>`/`http-equiv` → UTF-8 순. EUC-KR 사이트도 제목이 깨지지 않는다
+
+SSRF 차단 (처음 주소와 **리다이렉트마다** 같은 검사를 한다):
+- 포트는 **80·443만** 허용 (`http://example.com:8080` → 400)
+- `localhost`, `*.localhost`, 주소에 아이디·비밀번호가 든 URL → 400
+- 접속할 IP는 **공인 unicast만** 허용(`ipaddr.js`의 `range() === 'unicast'`): 사설(10/8, 172.16/12, 192.168/16), 루프백(127/8, ::1), 링크 로컬(169.254/16, fe80::/10), CGNAT(100.64/10), 0.0.0.0, 멀티캐스트, ULA(fc00::/7), IPv4 매핑 IPv6(`::ffff:127.0.0.1`은 127.0.0.1로 보고 검사) 등 나머지는 모두 차단. `2130706433`, `0x7f.1` 같은 숫자 표기도 URL 파서가 127.0.0.1로 바꾼 뒤 검사한다
+- IP 검사는 **실제로 소켓을 여는 시점**에 한다(`undici` 연결 함수에서 DNS를 풀고, 검사한 IP로 바로 접속). 검사 따로·접속 따로 DNS를 두 번 풀면 그 사이 답이 바뀌는 DNS 리바인딩에 뚫리기 때문이다. DNS 답 중 하나라도 차단 대상이면 거절한다
+- 차단되면 `400 INVALID_URL`(리다이렉트 목적지가 차단돼도 같다). 사이트가 응답하지 않음·시간 초과·2xx 아님·HTML 아님·리다이렉트 초과는 `422 METADATA_FETCH_FAILED`
 
 ## POST /tokens
 
@@ -183,7 +196,7 @@ HTML의 `<title>`, `og:title`, 파비콘 링크 추출. 3초·1MB·리다이렉�
 | HTTP | code | 상황 |
 | --- | --- | --- |
 | 400 | VALIDATION_ERROR | 형식·규칙 위반 (details에 필드별 사유) |
-| 400 | INVALID_URL | http/https가 아님 |
+| 400 | INVALID_URL | http/https가 아님, `/metadata`에서 차단한 주소(사설 IP·localhost·80/443 외 포트) |
 | 400 | INVALID_IMPORT_FILE | 크롬 북마크 형식 아님 |
 | 401 | UNAUTHORIZED | Authorization 헤더 없음 |
 | 401 | INVALID_TOKEN | 액세스 토큰 서명·만료·발급자 오류, API 토큰 없음·폐기됨 |
@@ -192,6 +205,6 @@ HTML의 `<title>`, `og:title`, 파비콘 링크 추출. 3초·1MB·리다이렉�
 | 409 | DUPLICATE_URL / DUPLICATE_GROUP_NAME | 중복 |
 | 409 | TOKEN_LIMIT_EXCEEDED | 토큰 5개 초과 |
 | 413 | PAYLOAD_TOO_LARGE | 파일 5MB / 동기화 2MB 초과 |
-| 422 | METADATA_FETCH_FAILED | 대상 사이트 응답 없음 |
+| 422 | METADATA_FETCH_FAILED | 대상 사이트 응답 없음·시간 초과·HTML 아님·리다이렉트 3회 초과 |
 | 429 | RATE_LIMITED | 한도 초과 |
 | 500 | INTERNAL_ERROR | 서버 오류 |
