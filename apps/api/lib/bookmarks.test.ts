@@ -12,7 +12,7 @@ import { ApiError } from './errors'
 
 function fakeUser(): AuthContext {
   const userId = randomUUID()
-  return { userId, claims: { sub: userId, role: 'authenticated', aud: 'authenticated' } }
+  return { userId, claims: { sub: userId, role: 'authenticated', aud: 'authenticated' }, via: 'session' }
 }
 const A = fakeUser()
 const B = fakeUser()

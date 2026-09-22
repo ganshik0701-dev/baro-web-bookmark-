@@ -1,15 +1,19 @@
 // API 인증 (docs/03-api.md '공통 규칙').
 // 앱: Authorization: Bearer <Supabase 액세스 토큰> → 서버가 JWKS로 서명을 직접 검증한다.
-// 확장: Authorization: Bearer baro_<API 토큰> → 4주차 후반(/tokens)에 채운다. 지금은 거절만.
+// 확장: Authorization: Bearer baro_<API 토큰> → 해시로 주인을 찾는다(lib/api-tokens.ts).
+//        받겠다고 표시한 엔드포인트(withAuth(..., { allowApiToken: true }))에서만 통한다.
 // 토큰 값은 로그에 찍지 않는다.
 import type { NextRequest } from 'next/server'
 import { createRemoteJWKSet, errors, jwtVerify, type JWTPayload } from 'jose'
+import { resolveApiToken } from './api-tokens'
 import { ApiError, fail } from './errors'
 
 export type AuthContext = {
   userId: string
-  /** 검증을 마친 토큰의 claims. withUserDb가 request.jwt.claims로 DB에 넣는다(RLS·auth.uid()) */
+  /** withUserDb가 request.jwt.claims로 DB에 넣는다(RLS·auth.uid()). 앱은 검증한 토큰의 claims, 확장은 { sub, role } */
   claims: JWTPayload
+  /** session = 앱(Supabase 액세스 토큰), apiToken = 확장(baro_) */
+  via: 'session' | 'apiToken'
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -66,10 +70,14 @@ export async function verifyAccessToken(token: string): Promise<AuthContext> {
   if (payload.role !== 'authenticated' || typeof payload.sub !== 'string' || !UUID.test(payload.sub)) {
     throw new InvalidToken('role/sub')
   }
-  return { userId: payload.sub, claims: payload }
+  return { userId: payload.sub, claims: payload, via: 'session' }
 }
 
 type RouteContext<P> = { params: Promise<P> }
+type AuthOptions = {
+  /** 확장 토큰(baro_)도 받는다. 기본은 앱 토큰만 (docs/03-api.md '공통 규칙') */
+  allowApiToken?: boolean
+}
 type AuthedHandler<P> = (req: NextRequest, ctx: { auth: AuthContext; params: Promise<P> }) => Promise<Response>
 
 /**
@@ -77,7 +85,7 @@ type AuthedHandler<P> = (req: NextRequest, ctx: { auth: AuthContext; params: Pro
  *   헤더 없음 → 401 UNAUTHORIZED / 토큰이 잘못됨·만료 → 401 INVALID_TOKEN
  * handler에서 난 예상 못 한 오류는 500 INTERNAL_ERROR로 바꾼다(내부 메시지는 응답에 싣지 않는다)
  */
-export function withAuth<P = Record<string, never>>(handler: AuthedHandler<P>) {
+export function withAuth<P = Record<string, never>>(handler: AuthedHandler<P>, options: AuthOptions = {}) {
   return async (req: NextRequest, { params }: RouteContext<P>): Promise<Response> => {
     const header = req.headers.get('authorization')
     const match = header?.match(/^Bearer\s+(\S+)$/i)
@@ -87,10 +95,15 @@ export function withAuth<P = Record<string, never>>(handler: AuthedHandler<P>) {
     let auth: AuthContext
     try {
       if (token.startsWith('baro_')) {
-        // 확장 토큰(EXT-01). /tokens 작업 때 해시 조회로 채운다
-        return fail('INVALID_TOKEN', '확장 토큰은 아직 지원하지 않습니다')
+        // 받지 않는 엔드포인트면 DB를 보기 전에 거절한다(토큰이 유효한지도 알려 주지 않는다)
+        if (!options.allowApiToken) return fail('INVALID_TOKEN', '확장 토큰으로는 쓸 수 없는 요청입니다')
+        const userId = await resolveApiToken(token)
+        // 형식 오류·없음·폐기를 구분하지 않고 같은 응답
+        if (!userId) return fail('INVALID_TOKEN', '토큰이 유효하지 않거나 만료되었습니다')
+        auth = { userId, claims: { sub: userId, role: 'authenticated' }, via: 'apiToken' }
+      } else {
+        auth = await verifyAccessToken(token)
       }
-      auth = await verifyAccessToken(token)
     } catch (err) {
       if (err instanceof InvalidToken) return fail('INVALID_TOKEN', '토큰이 유효하지 않거나 만료되었습니다')
       console.error('[auth] 토큰 검증 중 서버 오류:', err instanceof Error ? err.message : String(err))

@@ -7,6 +7,8 @@ Next.js Route Handler, 기본 경로 `/api/v1`, JSON.
 - 인증: 앱은 `Authorization: Bearer <Supabase 액세스 토큰>`, 확장은 `Authorization: Bearer baro_<API 토큰>`. 서버는 접두사로 구분한다
   - 액세스 토큰은 서버가 직접 서명을 검증한다: 프로젝트 JWKS(`<SUPABASE_URL>/auth/v1/.well-known/jwks.json`), 알고리즘 `ES256`, `iss` = `<SUPABASE_URL>/auth/v1`, `aud` = `authenticated`, `role` = `authenticated`, `sub` = uuid. Supabase에 요청마다 묻지 않는다(로그아웃한 토큰도 만료 전까지는 통과한다. 액세스 토큰 수명 1시간)
   - 헤더가 없으면 `401 UNAUTHORIZED`, 서명·만료·발급자·대상이 틀리면 `401 INVALID_TOKEN`
+  - 확장 토큰(`baro_`)은 **받겠다고 표시한 엔드포인트에서만** 통한다(기본은 앱 토큰만). 지금은 `GET /me`뿐이고, `/sync/chrome`은 구현할 때 연다. 다른 엔드포인트에 보내면 `401 INVALID_TOKEN`
+  - 확장 토큰 검증: 형식(`baro_` + base64url 43자)이 틀리면 DB를 보지 않고 401. 맞으면 SHA-256 해시로 사용자를 찾는다(docs/02-db.md `private.resolve_api_token`). 없거나 폐기된 토큰은 같은 `401 INVALID_TOKEN`(어느 쪽인지 알려 주지 않는다). 폐기는 바로 적용된다(캐시 없음)
 - DB 접근: 요청마다 트랜잭션을 열고 `SET LOCAL ROLE authenticated` + `request.jwt.claims`(검증한 토큰의 claims)를 넣은 뒤 쿼리한다. RLS가 API 경로에서도 적용되고, 쿼리에는 `user_id` 조건도 직접 붙인다(docs/02-db.md). 서비스 키는 쓰지 않는다
 - 성공: `{ "data": ... }`, 목록은 `{ "data": [...], "meta": { "total": 120 } }`
 - 실패: `{ "error": { "code": "BOOKMARK_NOT_FOUND", "message": "북마크를 찾을 수 없습니다" } }`
@@ -19,7 +21,7 @@ Next.js Route Handler, 기본 경로 `/api/v1`, JSON.
 
 | 메서드 | 경로 | 설명 | 호출 | 기능 |
 | --- | --- | --- | --- | --- |
-| GET | /me | 프로필·설정 조회 | 앱 | SET |
+| GET | /me | 프로필·설정 조회 | 앱·확장 | SET, EXT-P 연결 상태 |
 | PATCH | /me | 설정 변경 | 앱 | SET, SEARCH-05 |
 | DELETE | /me | 회원 탈퇴 | 앱 | AUTH-04 |
 | GET | /bookmarks | 목록(정렬·그룹·태그) | 앱 | SEARCH-04 |
@@ -150,9 +152,24 @@ SSRF 차단 (처음 주소와 **리다이렉트마다** 같은 검사를 한다)
 
 ```json
 { "name": "회사 PC 크롬" }
-→ 201 { "data": { "id": "t1...", "name": "회사 PC 크롬", "prefix": "baro_ab1", "token": "baro_ab12cd34..." } }
+→ 201 { "data": { "id": "t1...", "name": "회사 PC 크롬", "prefix": "baro_ab1", "token": "baro_ab12cd34...", "createdAt": "..." } }
 ```
-32바이트 난수 + `baro_` 접두사, SHA-256 해시만 저장. 원본은 이 응답에서만 반환.
+- 앱 토큰으로만 부른다(확장 토큰으로 토큰을 만들거나 지울 수 없다). 아래 GET·DELETE도 같다
+- `name`: 앞뒤 공백을 자르고 1~30자. 모르는 필드는 400
+- 토큰: 32바이트 난수를 base64url(43자)로, 앞에 `baro_`. DB에는 SHA-256 해시(hex 64자)와 `prefix`(앞 8자, 목록 표시용)만 저장한다
+- **원본은 이 응답에서만** 돌려준다(`Cache-Control: no-store`). 로그·오류 메시지·다른 응답에 싣지 않는다. 잃어버리면 폐기하고 새로 발급한다
+- 사용자당 5개. 넘으면 `409 TOKEN_LIMIT_EXCEEDED` (DB 트리거가 검사해 동시 요청에서도 지킨다)
+
+## GET /tokens
+
+```json
+{ "data": [{ "id": "t1...", "name": "회사 PC 크롬", "prefix": "baro_ab1", "lastUsedAt": null, "createdAt": "..." }], "meta": { "total": 1 } }
+```
+최근 발급순. 해시·원본은 절대 싣지 않는다. `lastUsedAt`은 5분 단위로만 갱신된다(아래 DB 문서).
+
+## DELETE /tokens/:id
+
+`204 No Content`. 바로 폐기되어 그 토큰의 다음 요청은 401. 없거나 남의 토큰이거나 uuid 형식이 아니면 `404 TOKEN_NOT_FOUND`(북마크와 같은 이유로 403을 쓰지 않는다).
 
 ## POST /sync/chrome
 
@@ -199,9 +216,9 @@ SSRF 차단 (처음 주소와 **리다이렉트마다** 같은 검사를 한다)
 | 400 | INVALID_URL | http/https가 아님, `/metadata`에서 차단한 주소(사설 IP·localhost·80/443 외 포트) |
 | 400 | INVALID_IMPORT_FILE | 크롬 북마크 형식 아님 |
 | 401 | UNAUTHORIZED | Authorization 헤더 없음 |
-| 401 | INVALID_TOKEN | 액세스 토큰 서명·만료·발급자 오류, API 토큰 없음·폐기됨 |
+| 401 | INVALID_TOKEN | 액세스 토큰 서명·만료·발급자 오류, API 토큰 없음·폐기됨, 확장 토큰을 받지 않는 엔드포인트 |
 | 403 | FORBIDDEN | (지금은 쓰지 않음) 남의 북마크·그룹은 존재를 숨기려고 404로 답한다 |
-| 404 | BOOKMARK_NOT_FOUND / GROUP_NOT_FOUND | 없음 |
+| 404 | BOOKMARK_NOT_FOUND / GROUP_NOT_FOUND / TOKEN_NOT_FOUND | 없음 |
 | 409 | DUPLICATE_URL / DUPLICATE_GROUP_NAME | 중복 |
 | 409 | TOKEN_LIMIT_EXCEEDED | 토큰 5개 초과 |
 | 413 | PAYLOAD_TOO_LARGE | 파일 5MB / 동기화 2MB 초과 |

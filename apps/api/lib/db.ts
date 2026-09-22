@@ -36,3 +36,24 @@ export async function assertUserContext(tx: Tx, userId: string): Promise<void> {
     throw new Error(`DB 사용자 권한 전환 실패 (current_user=${row?.role ?? '없음'})`)
   }
 }
+
+/**
+ * 확장 토큰의 해시로 주인(user_id)을 찾는다. 없거나 폐기됐으면 null.
+ * withUserDb의 유일한 예외다: 이 시점엔 누구인지 몰라 RLS로 찾을 수 없다(docs/02-db.md).
+ * 테이블 권한이 전혀 없는 baro_token_resolver 역할로 바꾼 뒤 private.resolve_api_token 하나만 부른다.
+ * 이 트랜잭션에 다른 쿼리를 추가하지 않는다(CLAUDE.md 'API 보안')
+ */
+export function resolveApiTokenUser(tokenHash: string): Promise<string | null> {
+  return getRawDb().transaction(async (tx) => {
+    await tx.execute(sql`select set_config('role', 'baro_token_resolver', true)`)
+    const [who] = await tx.execute<{ role: string }>(sql`select current_user as role`)
+    if (who?.role !== 'baro_token_resolver') {
+      throw new Error(`DB 토큰 조회 역할 전환 실패 (current_user=${who?.role ?? '없음'})`)
+    }
+    // ::char(64) — 컬럼과 같은 타입이어야 idx_tokens_hash를 쓴다(함수 인자도 char(64))
+    const [row] = await tx.execute<{ user_id: string | null }>(
+      sql`select private.resolve_api_token(${tokenHash}::char(64)) as user_id`
+    )
+    return row?.user_id ?? null
+  })
+}
