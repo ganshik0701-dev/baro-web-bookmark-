@@ -3,11 +3,10 @@
 전체 계획의 현재 상태. 작업이 끝날 때마다 여기 체크박스를 채운다.
 상세 내용은 `docs/05-roadmap.md`, 작업 지시 문구는 `docs/06-prompts.md`.
 
-마지막 갱신: 2026-09-22 (4주차: /metadata 구현·SSRF 테스트·실제 토큰 HTTP 확인, 운영 확인 남음)
+마지막 갱신: 2026-09-22 (4주차: /metadata + SSRF 차단 완료, 운영 확인)
 
 **다음 작업 (순서대로)**
-1. `/metadata` 마무리: 운영(Vercel)에서 SSRF 차단·제목 확인
-2. `/tokens` 3종, 토큰 해시 저장, 확장 토큰 인증
+1. `/tokens` 3종, 토큰 해시 저장, 확장 토큰 인증
 
 ---
 
@@ -105,7 +104,7 @@
   - [x] 통합 테스트 8개(가짜 사용자 A·B, 실제 DB): 남의 북마크 GET·PATCH·DELETE 404, 남의 groupId GROUP_NOT_FOUND, 같은 URL 409 + existingId, 동시 추가 5개 → 1개만 생성, 동시 수정 경쟁 → 409(catch 경로 실제 통과 확인)
   - [x] 실제 토큰 HTTP 확인(로컬 개발 서버): 위 항목 + `javascript:` 400 INVALID_URL, `allowDuplicate` 400, JSON 아님 400, id 형식 오류 404, 목록에 남의 것 없음
   - [x] 운영(Vercel) 확인: POST 201 → 목록에 있음 → DELETE 204 → 다시 GET 404, 확인용 북마크 DB에 0개 (응답 헤더 icn1::icn1)
-- [ ] `/metadata` + SSRF 차단 (`lib/metadata.ts`, 라우트 1개. 속도 제한은 아래 공통 항목으로 분리)
+- [x] `/metadata` + SSRF 차단 (`lib/metadata.ts`, 라우트 1개. 속도 제한은 아래 공통 항목으로 분리)
   - [x] 문서 먼저: 03-api.md `/metadata` 상세(포트 80·443, 접속 시점 IP 검사, 1MB·3초·리다이렉트 3회, 인코딩, 아이콘 규칙), CLAUDE.md 포트 제한, 06-prompts.md(cheerio → node-html-parser)
   - [x] 패키지: `undici` 7(8은 Node 22.19+ 필요해 CI의 Node 20과 안 맞음)·`ipaddr.js`·`node-html-parser`
   - [x] 단위·통합 테스트 82개 통과(`METADATA_LIVE=1`): IP 판정, 제목·아이콘 추출, EUC-KR(헤더·meta), 로컬 서버로 리다이렉트 3회 통과·4회 422, 목적지 내부 IP·포트·localhost 400(그 목적지로 요청 안 감), 3초 422, 5MB 페이지 1MB에서 끊기
@@ -118,7 +117,8 @@
   - 참고: 이 PC(Windows)는 OS DNS가 169.254.x 답을 버려 `169.254.169.254.nip.io`는 접속 전에 422. 공개 DNS 답을 운영 IP 검사에 넣어 400 확인
   - [x] 실제 토큰으로 HTTP 확인(로컬 빌드 서버 `next start`): localhost·127.0.0.1·[::1]·169.254.169.254·2130706433·localtest.me·httpbin 내부 리다이렉트 2종 400 INVALID_URL, `:8080` 400(포트), `javascript:`·빈 주소 400, github·naver·yes24 200 제목 정상
   - 외부 사이트 테스트(httpbin·localtest.me·nip.io 등 11개)는 `METADATA_LIVE=1`일 때만 돈다(CI·기본 실행은 건너뜀)
-  - [ ] 운영(Vercel)에서 SSRF 차단·제목 확인
+  - [x] 운영(Vercel, `baro-web-bookmark-api.vercel.app`, 응답 헤더 icn1)에서 로컬과 같은 14개 결과 + 토큰 없음 401. Linux라 `169.254.169.254.nip.io`·`10.0.0.1.nip.io`도 400 확인(접속 시점 검사)
+  - 확인용 세션은 로그아웃(204)으로 폐기
 - [ ] 속도 제한(공통): 사용자당 분당 120회, `/metadata` 20회, `/sync/chrome` 10회 (서버리스라 DB·KV 저장소 필요, 따로 설계)
 - [ ] `/tokens` 3종, 토큰 해시 저장, 인증 미들웨어
 - [ ] `/sync/chrome` (full/partial, 트랜잭션)
