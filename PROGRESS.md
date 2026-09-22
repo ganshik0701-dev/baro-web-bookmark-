@@ -3,11 +3,10 @@
 전체 계획의 현재 상태. 작업이 끝날 때마다 여기 체크박스를 채운다.
 상세 내용은 `docs/05-roadmap.md`, 작업 지시 문구는 `docs/06-prompts.md`.
 
-마지막 갱신: 2026-09-22 (4주차: /tokens 구현·로컬 HTTP 확인, 운영 확인 남음)
+마지막 갱신: 2026-09-22 (4주차: /tokens 완료, 운영 확인)
 
 **다음 작업 (순서대로)**
-1. `/tokens` 마무리: 운영(Vercel)에서 발급·확장 토큰 `/me`·폐기 확인
-2. `/sync/chrome` (full/partial, 트랜잭션) — 확장 토큰을 받게 연다
+1. `/sync/chrome` (full/partial, 트랜잭션) — 확장 토큰을 받게 연다
 
 ---
 
@@ -121,7 +120,7 @@
   - [x] 운영(Vercel, `baro-web-bookmark-api.vercel.app`, 응답 헤더 icn1)에서 로컬과 같은 14개 결과 + 토큰 없음 401. Linux라 `169.254.169.254.nip.io`·`10.0.0.1.nip.io`도 400 확인(접속 시점 검사)
   - 확인용 세션은 로그아웃(204)으로 폐기
 - [ ] 속도 제한(공통): 사용자당 분당 120회, `/metadata` 20회, `/sync/chrome` 10회 (서버리스라 DB·KV 저장소 필요, 따로 설계)
-- [ ] `/tokens` 3종, 토큰 해시 저장, 인증 미들웨어 (EXT-01)
+- [x] `/tokens` 3종, 토큰 해시 저장, 인증 미들웨어 (EXT-01)
   - [x] 설계 승인: 조회 전용 역할 `baro_token_resolver` + `private` 스키마, 확장 토큰은 지금 `GET /me`만, `last_used_at` 5분 단위
   - [x] 문서 먼저: 03-api.md(`/tokens` 상세, `TOKEN_NOT_FOUND`, 확장 토큰은 표시한 엔드포인트만), 02-db.md(역할·함수·트리거), CLAUDE.md(`withUserDb` 예외 하나)
   - [x] `005_api_tokens.sql`: `private.resolve_api_token(char(64)) returns uuid`(security definer, `search_path=''`), 5개 제한 트리거(profiles `FOR UPDATE` 잠금)
@@ -131,7 +130,7 @@
   - [x] 테스트: shared 52개, API 101개 통과(토큰 18개: 원본 비저장·목록에 해시 없음·폐기 즉시 반영·남의 토큰 404·동시 10개 발급 → 정확히 5개·last_used_at 5분·함수 속성과 역할별 권한·인덱스 사용·withAuth 허용/거부), typecheck 전체·`next build` 통과
   - [x] 실제 토큰 HTTP 확인(로컬 빌드 서버): 발급 201 + `cache-control: no-store`, 확장 토큰 `/me` 200, 확장 토큰으로 `/tokens` 3종·`/metadata` 401, 형식 오류·없는 토큰 같은 401, 검증 400, 없는 id 404, 동시 8개 → 201 4 + 409 4(합계 5), 목록 키에 해시 없음, 폐기 후 같은 토큰 401, 확인용 토큰 모두 정리
     - 참고: Git Bash에서 한글을 `-d` 인자로 넘기면 UTF-8이 아니게 전송돼 이름이 `����`로 저장됨(셸 문제, 파일로 보내면 정상). 확인 스크립트는 영문 이름 사용
-  - [ ] 운영(Vercel) 확인
+  - [x] 운영(Vercel, 응답 헤더 icn1) 확인: 로컬과 같은 14단계 결과(동시 8개 → 201 4 + 409 4), 확인용 토큰 모두 폐기, 확인용 세션 로그아웃
 - [ ] `/sync/chrome` (full/partial, 트랜잭션)
 - [ ] apps/extension: manifest(key 고정), 팝업, 이벤트 리스너 (EXT-01~04)
 - [ ] 크롬에서 북마크 추가 → DB 반영 확인
