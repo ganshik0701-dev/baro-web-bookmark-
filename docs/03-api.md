@@ -7,7 +7,7 @@ Next.js Route Handler, 기본 경로 `/api/v1`, JSON.
 - 인증: 앱은 `Authorization: Bearer <Supabase 액세스 토큰>`, 확장은 `Authorization: Bearer baro_<API 토큰>`. 서버는 접두사로 구분한다
   - 액세스 토큰은 서버가 직접 서명을 검증한다: 프로젝트 JWKS(`<SUPABASE_URL>/auth/v1/.well-known/jwks.json`), 알고리즘 `ES256`, `iss` = `<SUPABASE_URL>/auth/v1`, `aud` = `authenticated`, `role` = `authenticated`, `sub` = uuid. Supabase에 요청마다 묻지 않는다(로그아웃한 토큰도 만료 전까지는 통과한다. 액세스 토큰 수명 1시간)
   - 헤더가 없으면 `401 UNAUTHORIZED`, 서명·만료·발급자·대상이 틀리면 `401 INVALID_TOKEN`
-  - 확장 토큰(`baro_`)은 **받겠다고 표시한 엔드포인트에서만** 통한다(기본은 앱 토큰만). 지금은 `GET /me`뿐이고, `/sync/chrome`은 구현할 때 연다. 다른 엔드포인트에 보내면 `401 INVALID_TOKEN`
+  - 확장 토큰(`baro_`)은 **받겠다고 표시한 엔드포인트에서만** 통한다(기본은 앱 토큰만). 지금은 `GET /me`, `POST /sync/chrome`. 다른 엔드포인트에 보내면 `401 INVALID_TOKEN`
   - 확장 토큰 검증: 형식(`baro_` + base64url 43자)이 틀리면 DB를 보지 않고 401. 맞으면 SHA-256 해시로 사용자를 찾는다(docs/02-db.md `private.resolve_api_token`). 없거나 폐기된 토큰은 같은 `401 INVALID_TOKEN`(어느 쪽인지 알려 주지 않는다). 폐기는 바로 적용된다(캐시 없음)
 - DB 접근: 요청마다 트랜잭션을 열고 `SET LOCAL ROLE authenticated` + `request.jwt.claims`(검증한 토큰의 claims)를 넣은 뒤 쿼리한다. RLS가 API 경로에서도 적용되고, 쿼리에는 `user_id` 조건도 직접 붙인다(docs/02-db.md). 서비스 키는 쓰지 않는다
 - 성공: `{ "data": ... }`, 목록은 `{ "data": [...], "meta": { "total": 120 } }`
@@ -173,7 +173,7 @@ SSRF 차단 (처음 주소와 **리다이렉트마다** 같은 검사를 한다)
 
 ## POST /sync/chrome
 
-앱은 Bookmarks 파일 파싱 결과를, 확장은 `chrome.bookmarks` 결과를 같은 형식으로 평탄화해 보낸다.
+앱은 Bookmarks 파일 파싱 결과를, 확장은 `chrome.bookmarks` 결과를 같은 형식으로 평탄화해 보낸다. 앱 토큰·확장 토큰 모두 받는다.
 
 ```json
 {
@@ -182,23 +182,53 @@ SSRF 차단 (처음 주소와 **리다이렉트마다** 같은 검사를 한다)
   "profile": "Default",
   "folders": [{ "chromeId": "5", "parentChromeId": "1", "title": "개발" }],
   "bookmarks": [{ "chromeId": "12", "parentChromeId": "5", "title": "GitHub", "url": "https://github.com", "addedAt": "2026-08-01T03:00:00Z" }],
-  "deletedChromeIds": []
+  "deletedChromeIds": [],
+  "confirmDeleteCount": 300
 }
-→ { "data": { "created": 230, "updated": 4, "deleted": 2, "skipped": 11, "syncedAt": "2026-09-17T09:00:00Z" } }
+→ { "data": { "created": 230, "updated": 4, "deleted": 2, "skipped": 11,
+              "skippedReasons": { "invalidUrl": 3, "duplicateUrl": 6, "manualExists": 2 },
+              "syncedAt": "2026-09-17T09:00:00Z" } }
 ```
 
 | 필드 | 설명 |
 | --- | --- |
-| mode | `full`: 보낸 목록 기준 추가·수정·삭제 / `partial`: 보낸 항목과 deletedChromeIds만 |
-| source | `app` 또는 `extension` → 저장되는 bookmarks.source |
-| folders | 크롬 폴더 → groups (`chrome_folder_id` 매칭) |
-| bookmarks | `chrome_id` 매칭, 없으면 생성. http/https 아닌 URL은 skipped |
+| mode | `full`: 보낸 목록 기준 추가·수정·삭제 / `partial`: 보낸 항목 추가·수정과 deletedChromeIds 삭제만 |
+| source | `app`(→ DB `app_sync`) 또는 `extension`(→ `ext_sync`). **토큰 종류와 맞아야 한다**: 앱 토큰은 `app`, 확장 토큰은 `extension`. 다르면 400 |
+| profile | 크롬 프로필 이름(선택, 50자). 앱만 보낸다(확장은 알 수 없음). `profiles.chrome_profile`에 저장 |
+| folders | 크롬 폴더 → groups (`chrome_folder_id` 매칭). **최상위 폴더(북마크바·기타·모바일)는 넣지 않는다.** 최대 1,000개 |
+| bookmarks | `chrome_id` 매칭, 없으면 생성. 최대 5,000개. `url`이 http/https가 아니면(`javascript:` 북마클릿, `chrome://` 등) 그 항목만 건너뛴다(요청 전체를 거절하지 않음) |
+| deletedChromeIds | `partial`에서 지울 크롬 id(북마크·폴더 공통 번호). 최대 5,000개. `full`에서는 무시 |
+| confirmDeleteCount | 대량 삭제 확인(`full`만). 아래 '대량 삭제 확인' |
 
 처리 규칙:
-- 한 트랜잭션으로 실행, 중간 실패 시 전체 롤백
-- `full`에서 요청에 없는 chrome_id는 삭제하되 `source`가 `manual`·`html_import`인 것은 유지
-- 앱과 확장이 같은 chrome_id를 보내면 나중 요청이 갱신
-- 북마크 최대 5,000개, 본문 최대 2MB
+- 한 트랜잭션으로 실행, 중간 실패 시 전체 롤백. 같은 사용자의 동기화는 시작할 때 profiles 행을 잠가 한 번에 하나씩 처리한다(앱·확장 동시 요청)
+- 쿼리 수는 북마크 수와 상관없이 일정하다: 기존 북마크·그룹을 한 번에 읽고, 메모리에서 계획을 세운 뒤 삭제 → 수정 → 추가를 묶음(500행) 쿼리로 쓴다. 바뀐 게 없는 행은 쓰지 않는다
+- `full`에서 요청에 없는 chrome_id의 북마크는 삭제하되 `source`가 `manual`·`html_import`인 것은 유지(이들은 chrome_id가 없다. DB CHECK로 보장). 요청에 없는 폴더의 그룹도 삭제(안의 북마크는 미분류로)
+- 삭제된 북마크의 방문 기록(`visit_logs`)도 함께 지워진다(되돌릴 수 없음)
+- 앱과 확장이 같은 chrome_id를 보내면 나중 요청이 갱신(source도 나중 값으로)
+- 제목은 100자로 자르고, 비어 있으면 도메인. `addedAt`은 새로 만드는 행의 `created_at`이 된다
+- 본문 최대 2MB(넘으면 `413 PAYLOAD_TOO_LARGE`). 함수 제한 시간 60초
+- 확장 쪽 약속(EXT-02): 폴더를 옮기거나 이름을 바꾸면 그 폴더의 하위 트리를 함께 보낸다(하위 그룹 이름이 경로라서)
+
+**같은 URL 충돌** (`uq_bm_user_url` 때문에 한 사용자에게 같은 정규화 URL은 한 행뿐). 충돌은 쓰기 전에 메모리에서 정리하고 해당 항목만 건너뛴다. 충돌 하나로 전체가 실패하지 않는다.
+- 크롬 안에서 같은 URL이 여러 폴더에 있으면 한 행만 만든다. 대표: 이미 DB에 연결된 chrome_id가 요청에 있으면 그것, 없으면 요청 순서(트리 순서)의 첫 번째. 나머지는 `duplicateUrl`
+- 바로에서 직접 추가한(`manual`)·HTML로 가져온(`html_import`) 북마크와 같은 URL이면 크롬 쪽을 `manualExists`로 건너뛴다. 기존 행은 건드리지 않는다(EXT-04)
+- 수정으로 URL이 바뀌어 다른 행과 겹치면 그 항목은 이전 URL을 유지하고 `duplicateUrl`. 두 북마크가 URL을 맞바꾸는 경우 한쪽이 건너뛰어지고 다음 `full`에서 맞춰진다
+- 계획을 세운 뒤 다른 요청(`POST /bookmarks`)이 끼어들어 유니크 위반이 나면 동기화 전체를 한 번 다시 시도한다
+
+**폴더 → 그룹**
+- 폴더마다 그룹 하나, 이름은 경로 `상위/하위`(IO-01과 같은 규칙). 부모가 folders에 없는 폴더가 맨 위(최상위 폴더 바로 아래). 부모가 folders에 없는 북마크는 미분류(`groupId: null`)
+- 30자를 넘으면 끝을 살린다(`…/프론트/리액트`). 같은 이름이 있으면 ` (2)`, ` (3)`
+- 그룹 순서(position)는 처음 만들 때만 정한다(v1.1 탭 순서 변경을 덮어쓰지 않게)
+
+**대량 삭제 확인** (`full`만)
+- 지워질 동기화 북마크 수가 **(기존 동기화 북마크의 절반 이상 그리고 20개 이상) 또는 100개 이상**이면 아무것도 쓰지 않고 `409 MASS_DELETE_CONFIRM_REQUIRED`, `details: { "deleteCount": 300, "syncedTotal": 420 }`
+- 사용자가 확인하면 같은 요청에 `confirmDeleteCount: <details.deleteCount>`를 붙여 다시 보낸다. 실제 삭제 수가 이 값 **이하**일 때만 실행하고, 더 많으면(확인하는 사이 크롬에서 더 지운 경우) 다시 409
+- 이유: 파일을 일부만 읽은 경우(예: 북마크바만 읽힘)는 클라이언트에게 성공처럼 보인다. 지워진 북마크는 방문 기록까지 사라져 되돌릴 수 없다. 앱이 다른 크롬 프로필로 전체 동기화하는 경우(프로필 교체)도 이 확인에 걸린다
+- 그룹 삭제는 세지 않는다(북마크는 미분류로 남음). `partial`의 `deletedChromeIds`도 세지 않는다(사용자가 크롬에서 직접 지운 이벤트)
+- 클라이언트 처리: 앱은 DESK-03, 확장은 EXT-03 참고(docs/01-spec.md)
+
+**v1 한계: 크롬 프로필은 사용자당 하나.** 크롬 id는 프로필마다 1부터 다시 매겨진다. 두 프로필을 섞으면 서로 다른 북마크가 같은 id로 뒤섞이므로, 앱이 다른 프로필로 `full`을 보내면 프로필 교체로 본다(이전 프로필분은 삭제 규칙대로 지워지고, 대량이면 위 확인을 거친다). 확장은 앱과 같은 프로필이라고 가정한다.
 
 ## POST /import/chrome
 
@@ -221,6 +251,7 @@ SSRF 차단 (처음 주소와 **리다이렉트마다** 같은 검사를 한다)
 | 404 | BOOKMARK_NOT_FOUND / GROUP_NOT_FOUND / TOKEN_NOT_FOUND | 없음 |
 | 409 | DUPLICATE_URL / DUPLICATE_GROUP_NAME | 중복 |
 | 409 | TOKEN_LIMIT_EXCEEDED | 토큰 5개 초과 |
+| 409 | MASS_DELETE_CONFIRM_REQUIRED | `/sync/chrome` full이 대량 삭제를 하려 함. `details.deleteCount`로 확인 후 `confirmDeleteCount`를 붙여 재요청 |
 | 413 | PAYLOAD_TOO_LARGE | 파일 5MB / 동기화 2MB 초과 |
 | 422 | METADATA_FETCH_FAILED | 대상 사이트 응답 없음·시간 초과·HTML 아님·리다이렉트 3회 초과 |
 | 429 | RATE_LIMITED | 한도 초과 |

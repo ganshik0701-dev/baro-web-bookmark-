@@ -75,7 +75,8 @@ TypeScript / Electron 33 + electron-vite / React 19 + Vite / Tailwind CSS + shad
 - 모든 테이블 RLS 적용 + API 쿼리에도 `user_id` 조건을 직접 붙인다
 - API는 요청마다 사용자 권한(`authenticated` 역할 + 검증한 토큰의 claims)으로 RLS를 켠 트랜잭션 안에서만 쿼리한다(`withUserDb`). 서비스 키로 쿼리하지 않는다
   - 예외는 확장 토큰 조회 하나뿐: 전용 역할 `baro_token_resolver`로 `private.resolve_api_token(해시)`만 부른다(user_id만 돌려받음). 다른 쿼리를 이 경로에 추가하지 않는다
-- 확장 토큰(`baro_`)은 받겠다고 표시한 엔드포인트에서만 통한다(기본은 앱 토큰만). 토큰 발급·목록·폐기는 앱 토큰으로만
+- 확장 토큰(`baro_`)은 받겠다고 표시한 엔드포인트에서만 통한다(기본은 앱 토큰만, 지금은 `GET /me`·`POST /sync/chrome`). 토큰 발급·목록·폐기는 앱 토큰으로만
+- `/sync/chrome` full의 대량 삭제는 확인(`confirmDeleteCount`) 없이 실행하지 않는다. 삭제는 방문 기록까지 지워 되돌릴 수 없다
 - `/metadata`는 사설 IP(10.x, 172.16~31.x, 192.168.x, 127.x, 169.254.x 등 공인 unicast가 아닌 모든 IP)와 localhost를 차단하고, 포트는 80·443만 허용한다(SSRF). IP 검사는 소켓을 여는 시점에 하고(DNS 리바인딩 방지), 리다이렉트마다 다시 한다. 리다이렉트 3회 제한, 응답 1MB·3초 제한
 - `http`/`https`가 아닌 URL(`javascript:`, `data:`)은 저장도 실행도 거부한다
 - API 토큰은 원본을 저장하지 않고 SHA-256 해시만 저장한다

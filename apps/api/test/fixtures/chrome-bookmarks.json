@@ -1,0 +1,248 @@
+{
+   "checksum": "d41d8cd98f00b204e9800998ecf8427e",
+   "roots": {
+      "bookmark_bar": {
+         "children": [
+            {
+               "date_added": "13430026800000000",
+               "date_last_used": "0",
+               "guid": "9b1e0001-5a2c-4d7e-8f10-000000000001",
+               "id": "5",
+               "meta_info": {
+                  "power_bookmark_meta": ""
+               },
+               "name": "GitHub",
+               "type": "url",
+               "url": "https://github.com/"
+            },
+            {
+               "date_added": "13430113200000000",
+               "date_last_used": "0",
+               "guid": "9b1e0002-5a2c-4d7e-8f10-000000000002",
+               "id": "6",
+               "meta_info": {
+                  "power_bookmark_meta": ""
+               },
+               "name": "네이버",
+               "type": "url",
+               "url": "https://www.naver.com/"
+            },
+            {
+               "children": [
+                  {
+                     "date_added": "13430026800000000",
+                     "date_last_used": "0",
+                     "guid": "9b1e0003-5a2c-4d7e-8f10-000000000003",
+                     "id": "8",
+                     "meta_info": {
+                        "power_bookmark_meta": ""
+                     },
+                     "name": "MDN Web Docs",
+                     "type": "url",
+                     "url": "https://developer.mozilla.org/ko/"
+                  },
+                  {
+                     "children": [
+                        {
+                           "date_added": "13430026800000000",
+                           "date_last_used": "0",
+                           "guid": "9b1e0004-5a2c-4d7e-8f10-000000000004",
+                           "id": "10",
+                           "meta_info": {
+                              "power_bookmark_meta": ""
+                           },
+                           "name": "React",
+                           "type": "url",
+                           "url": "https://react.dev/"
+                        },
+                        {
+                           "children": [
+                              {
+                                 "date_added": "13430026800000000",
+                                 "date_last_used": "0",
+                                 "guid": "9b1e0005-5a2c-4d7e-8f10-000000000005",
+                                 "id": "12",
+                                 "meta_info": {
+                                    "power_bookmark_meta": ""
+                                 },
+                                 "name": "Zustand",
+                                 "type": "url",
+                                 "url": "https://zustand.docs.pmnd.rs/"
+                              }
+                           ],
+                           "date_added": "13427337600000000",
+                           "date_last_used": "0",
+                           "date_modified": "13432694400000000",
+                           "guid": "9b1e0006-5a2c-4d7e-8f10-000000000006",
+                           "id": "11",
+                           "name": "상태 관리 라이브러리 비교 모음 (2026년 정리)",
+                           "type": "folder"
+                        }
+                     ],
+                     "date_added": "13427337600000000",
+                     "date_last_used": "0",
+                     "date_modified": "13432694400000000",
+                     "guid": "9b1e0007-5a2c-4d7e-8f10-000000000007",
+                     "id": "9",
+                     "name": "프론트엔드",
+                     "type": "folder"
+                  },
+                  {
+                     "date_added": "13430026800000000",
+                     "date_last_used": "0",
+                     "guid": "9b1e0008-5a2c-4d7e-8f10-000000000008",
+                     "id": "13",
+                     "meta_info": {
+                        "power_bookmark_meta": ""
+                     },
+                     "name": "GitHub (개발 폴더에도 저장)",
+                     "type": "url",
+                     "url": "https://github.com"
+                  }
+               ],
+               "date_added": "13427337600000000",
+               "date_last_used": "0",
+               "date_modified": "13432694400000000",
+               "guid": "9b1e0009-5a2c-4d7e-8f10-000000000009",
+               "id": "7",
+               "name": "개발",
+               "type": "folder"
+            },
+            {
+               "date_added": "13430026800000000",
+               "date_last_used": "0",
+               "guid": "9b1e0010-5a2c-4d7e-8f10-000000000010",
+               "id": "14",
+               "meta_info": {
+                  "power_bookmark_meta": ""
+               },
+               "name": "글자 크게 (북마클릿)",
+               "type": "url",
+               "url": "javascript:void(document.body.style.zoom=1.5)"
+            },
+            {
+               "date_added": "13430026800000000",
+               "date_last_used": "0",
+               "guid": "9b1e0011-5a2c-4d7e-8f10-000000000011",
+               "id": "15",
+               "meta_info": {
+                  "power_bookmark_meta": ""
+               },
+               "name": "크롬 설정",
+               "type": "url",
+               "url": "chrome://settings/"
+            },
+            {
+               "date_added": "13430026800000000",
+               "date_last_used": "0",
+               "guid": "9b1e0012-5a2c-4d7e-8f10-000000000012",
+               "id": "16",
+               "meta_info": {
+                  "power_bookmark_meta": ""
+               },
+               "name": "아주 긴 제목 아주 긴 제목 아주 긴 제목 아주 긴 제목 아주 긴 제목 아주 긴 제목 아주 긴 제목 아주 긴 제목 아주 긴 제목 아주 긴 제목 아주 긴 제목 아주 긴 제목 아주 긴 제목 아주 긴 제목 아주 긴 제목",
+               "type": "url",
+               "url": "https://example.com/long-title"
+            },
+            {
+               "children": [],
+               "date_added": "13427337600000000",
+               "date_last_used": "0",
+               "date_modified": "13432694400000000",
+               "guid": "9b1e0013-5a2c-4d7e-8f10-000000000013",
+               "id": "17",
+               "name": "빈 폴더",
+               "type": "folder"
+            },
+            {
+               "date_added": "13430026800000000",
+               "date_last_used": "0",
+               "guid": "9b1e0014-5a2c-4d7e-8f10-000000000014",
+               "id": "19",
+               "meta_info": {
+                  "power_bookmark_meta": ""
+               },
+               "name": "Hacker News",
+               "type": "url",
+               "url": "https://news.ycombinator.com/?utm_source=chrome&utm_medium=bm"
+            }
+         ],
+         "date_added": "13427337600000000",
+         "date_last_used": "0",
+         "date_modified": "13432694400000000",
+         "guid": "0bc5d13f-2cba-5d74-951f-3f233fe6c908",
+         "id": "1",
+         "name": "북마크바",
+         "type": "folder"
+      },
+      "other": {
+         "children": [
+            {
+               "children": [
+                  {
+                     "date_added": "13430026800000000",
+                     "date_last_used": "0",
+                     "guid": "9b1e0016-5a2c-4d7e-8f10-000000000016",
+                     "id": "21",
+                     "meta_info": {
+                        "power_bookmark_meta": ""
+                     },
+                     "name": "Stack Overflow",
+                     "type": "url",
+                     "url": "https://stackoverflow.com/"
+                  }
+               ],
+               "date_added": "13427337600000000",
+               "date_last_used": "0",
+               "date_modified": "13432694400000000",
+               "guid": "9b1e0017-5a2c-4d7e-8f10-000000000017",
+               "id": "20",
+               "name": "개발",
+               "type": "folder"
+            },
+            {
+               "date_added": "13430026800000000",
+               "date_last_used": "0",
+               "guid": "9b1e0018-5a2c-4d7e-8f10-000000000018",
+               "id": "22",
+               "meta_info": {
+                  "power_bookmark_meta": ""
+               },
+               "name": "오래된 글",
+               "type": "url",
+               "url": "http://example.org/old"
+            },
+            {
+               "date_added": "13430026800000000",
+               "date_last_used": "0",
+               "guid": "9b1e0019-5a2c-4d7e-8f10-000000000019",
+               "id": "23",
+               "meta_info": {
+                  "power_bookmark_meta": ""
+               },
+               "name": "",
+               "type": "url",
+               "url": "https://empty-title.example.com/"
+            }
+         ],
+         "date_added": "13427337600000000",
+         "date_last_used": "0",
+         "date_modified": "13432694400000000",
+         "guid": "82b081ec-3dd3-529c-8475-ab6c344590dd",
+         "id": "2",
+         "name": "기타 북마크",
+         "type": "folder"
+      },
+      "synced": {
+         "children": [],
+         "date_added": "13427337600000000",
+         "date_last_used": "0",
+         "date_modified": "13432694400000000",
+         "guid": "4cf2e351-0e85-532b-bb37-df045d8f8d0f",
+         "id": "3",
+         "name": "모바일 북마크",
+         "type": "folder"
+      }
+   },
+   "version": 1
+}

@@ -3,10 +3,11 @@
 전체 계획의 현재 상태. 작업이 끝날 때마다 여기 체크박스를 채운다.
 상세 내용은 `docs/05-roadmap.md`, 작업 지시 문구는 `docs/06-prompts.md`.
 
-마지막 갱신: 2026-09-22 (4주차: /tokens 완료, 운영 확인)
+마지막 갱신: 2026-09-22 (4주차: /sync/chrome 구현·로컬 HTTP 확인, 운영 확인 남음)
 
 **다음 작업 (순서대로)**
-1. `/sync/chrome` (full/partial, 트랜잭션) — 확장 토큰을 받게 연다
+1. `/sync/chrome` 마무리: 운영(Vercel) 확인
+2. apps/extension (EXT-01~04)
 
 ---
 
@@ -132,6 +133,19 @@
     - 참고: Git Bash에서 한글을 `-d` 인자로 넘기면 UTF-8이 아니게 전송돼 이름이 `����`로 저장됨(셸 문제, 파일로 보내면 정상). 확인 스크립트는 영문 이름 사용
   - [x] 운영(Vercel, 응답 헤더 icn1) 확인: 로컬과 같은 14단계 결과(동시 8개 → 201 4 + 409 4), 확인용 토큰 모두 폐기, 확인용 세션 로그아웃
 - [ ] `/sync/chrome` (full/partial, 트랜잭션)
+  - [x] 설계 승인: URL당 한 행(나머지·manual 같은 URL은 건너뜀), `skippedReasons`, source와 토큰 종류 일치, 폴더 → 경로 이름 그룹(최상위 직속은 미분류), 크롬 프로필 사용자당 하나(v1)
+  - [x] 대량 삭제 확인 추가: full 삭제가 (절반 이상 AND 20개 이상) 또는 100개 이상이면 409 `MASS_DELETE_CONFIRM_REQUIRED` + 개수, `confirmDeleteCount` 이하일 때만 실행
+  - [x] 문서 먼저: 03-api.md(전체 규칙), 02-db.md(동기화용 제약), 01-spec.md(DESK-01·03, EXT-02·03 클라이언트 처리), CLAUDE.md
+  - [x] `006_sync.sql`: `idx_groups_user_chrome`, 그룹 이름 유니크 DEFERRABLE로 재생성, `bookmarks_source_check`, `bookmarks_chrome_id_source_check`
+    - [x] PGlite 리허설 16개 → 실제 DB `BEGIN…ROLLBACK` → `db push`
+    - 참고: `ALTER CONSTRAINT … DEFERRABLE`은 PG17까지 외래 키에만 됨(리허설에서 발견, 지우고 다시 만드는 방식으로). `DEFERRABLE INITIALLY IMMEDIATE`는 행마다가 아니라 문장 끝에 검사
+  - [x] 구현: `lib/sync-plan.ts`(순수 계획 함수), `lib/sync.ts`(사용자 잠금·한 번 읽기·500행 묶음 쓰기·URL 이동은 임시 값 단계·23505 한 번 재시도), 라우트(확장 토큰 허용, 2MB 413, maxDuration 60), shared `syncChromeInput`
+  - [x] 테스트 137개 통과: 계획 26개 + DB 통합 10개(크롬 Bookmarks 파일 모양 샘플 `test/fixtures/chrome-bookmarks.json`: 중첩 3단계·같은 URL·북마클릿·chrome://·긴 제목·빈 폴더·같은 이름 폴더)
+    - 5,000개: 첫 동기화 1.4초, 변화 없음 0.45초, 500개 수정 0.56초(로컬 → 서울 DB)
+    - URL 맞바꿈 임시 값 단계를 빼면 `uq_bm_user_url` 위반으로 실패하는 것 확인(단계가 실제로 필요)
+    - 확인 못 함: 23505 재시도 경로(결정적으로 재현할 방법 없음)
+  - [x] 실제 토큰 HTTP 확인(로컬 빌드 서버): 샘플 동기화 201→다시 보내면 0건, 확장 토큰 source=app 400, 확장 partial 200, 60개 → 20개 full 409(40/60, 아무것도 안 바뀜) → confirmDeleteCount 40으로 실행, 2MB 413, 인증 없음 401, 확인용 데이터 모두 정리(DB 북마크·그룹 0개 확인)
+  - [ ] 운영(Vercel) 확인
 - [ ] apps/extension: manifest(key 고정), 팝업, 이벤트 리스너 (EXT-01~04)
 - [ ] 크롬에서 북마크 추가 → DB 반영 확인
 
@@ -141,6 +155,8 @@
 - [ ] DESK-02: 프로필 목록, 파일 직접 선택
 - [ ] IPC + preload 노출
 - [ ] DESK-03: 자동·수동 동기화
+  - [ ] `409 MASS_DELETE_CONFIRM_REQUIRED` → 삭제 개수 확인 대화상자 → `confirmDeleteCount` 붙여 재전송, 취소 시 다음 동기화에서 다시 묻기
+  - [ ] 파싱 실패·의심스러운 결과면 `full`을 보내지 않기(DESK-01)
 - [ ] SCR-02 첫 동기화 화면
 - [ ] 파싱 단위 테스트
 - [ ] 앱 실행만으로 전체 북마크 반영 확인

@@ -86,9 +86,9 @@ URL 정규화 규칙: 호스트 소문자, 끝 슬래시 제거, `utm_*` 파라�
 
 | ID | 기능 | 요구사항 | 우선순위 |
 | --- | --- | --- | --- |
-| DESK-01 | 파일 읽기 | 기본 경로 탐색, 없으면 사용자가 파일 직접 선택 | P0 |
+| DESK-01 | 파일 읽기 | 기본 경로 탐색, 없으면 사용자가 파일 직접 선택. 파싱에 실패하거나 결과가 의심스러우면(`roots` 누락 등) **`full`을 보내지 않고 오류로 끝낸다**(빈 목록 full은 동기화분 전체 삭제가 된다). 최상위 폴더(북마크바·기타·모바일)는 folders에 넣지 않는다 | P0 |
 | DESK-02 | 프로필 선택 | `Local State`에서 프로필 이름 읽어 목록 표시 | P1 |
-| DESK-03 | 동기화 실행 | 앱 시작 시 자동 1회 + '지금 동기화' 버튼, 결과·시각 표시 | P0 |
+| DESK-03 | 동기화 실행 | 앱 시작 시 자동 1회 + '지금 동기화' 버튼, 결과·시각 표시(건너뜀은 `skippedReasons`로 이유별). `409 MASS_DELETE_CONFIRM_REQUIRED`를 받으면 **아무것도 반영되지 않은 상태**이므로 "크롬에 없는 북마크 N개(방문 기록 포함)를 바로에서 지울까요?"를 묻고, 확인하면 같은 요청에 `confirmDeleteCount: N`을 붙여 다시 보낸다. 취소하면 이번 동기화는 건너뛰고 다음 동기화에서 다시 묻는다(자동 동기화 중이면 조용히 알림 배지로) | P0 |
 | DESK-04 | 오프라인 | 서버 응답 없으면 electron-store 캐시 표시 + 오프라인 배지 | P1 |
 | DESK-05 | 창·트레이 | 기본 1100×720, 크기 기억, 닫기 시 트레이로 | P1 |
 | DESK-06 | 전역 단축키 | `Ctrl + Shift + B` | P1 |
@@ -100,8 +100,8 @@ URL 정규화 규칙: 호스트 소문자, 끝 슬래시 제거, `utm_*` 파라�
 | ID | 기능 | 요구사항 | 우선순위 |
 | --- | --- | --- | --- |
 | EXT-01 | 연결 | 앱에서 발급한 토큰을 팝업에 붙여넣기 | P0 |
-| EXT-02 | 실시간 동기화 | `onCreated`·`onChanged`·`onRemoved`·`onMoved` → 해당 항목만 전송(`partial`) | P0 |
-| EXT-03 | 전체 동기화 | `chrome.bookmarks.getTree()` 전송(`full`) | P0 |
+| EXT-02 | 실시간 동기화 | `onCreated`·`onChanged`·`onRemoved`·`onMoved` → 해당 항목만 전송(`partial`). 폴더를 옮기거나 이름을 바꾸면 하위 트리를 함께 보낸다. 폴더를 지우면 하위 id도 모두 `deletedChromeIds`에 | P0 |
+| EXT-03 | 전체 동기화 | `chrome.bookmarks.getTree()` 전송(`full`). 최상위 폴더는 folders에 넣지 않는다. `409 MASS_DELETE_CONFIRM_REQUIRED`면 팝업에서 삭제 개수를 보여주고 확인받아 `confirmDeleteCount`를 붙여 재전송 | P0 |
 | EXT-04 | 동기화 규칙 | `chrome_id`로 매칭. 바로에서 직접 추가한 북마크(`source: manual`)는 건드리지 않음 | P0 |
 | EXT-05 | 현재 페이지 추가 | 확장 아이콘 클릭 시 보고 있는 페이지 추가 | P2 |
 

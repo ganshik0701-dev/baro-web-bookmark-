@@ -53,8 +53,12 @@ export const groups = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    // 006에서 DEFERRABLE INITIALLY IMMEDIATE로 다시 만들었다(Drizzle 정의에는 deferrable 표기가 없다)
     unique('groups_user_id_name_key').on(t.userId, t.name),
     index('idx_groups_user').on(t.userId, t.position),
+    uniqueIndex('idx_groups_user_chrome')
+      .on(t.userId, t.chromeFolderId)
+      .where(sql`${t.chromeFolderId} is not null`),
   ],
 )
 
@@ -83,6 +87,11 @@ export const bookmarks = pgTable(
   },
   (t) => [
     check('bookmarks_url_check', sql`${t.url} ~ '^https?://'`),
+    check('bookmarks_source_check', sql`${t.source} in ('manual', 'app_sync', 'ext_sync', 'html_import')`),
+    check(
+      'bookmarks_chrome_id_source_check',
+      sql`(${t.chromeId} is not null) = (${t.source} in ('app_sync', 'ext_sync'))`,
+    ),
     unique('uq_bm_user_url').on(t.userId, t.normalizedUrl),
     uniqueIndex('idx_bm_user_chrome')
       .on(t.userId, t.chromeId)

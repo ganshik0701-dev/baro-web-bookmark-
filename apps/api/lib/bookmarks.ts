@@ -197,7 +197,7 @@ async function findIdByNormalizedUrl(
 }
 
 /** 제목이 없을 때: 도메인. 한글 도메인은 퓨니코드(xn--)가 아니라 한글로 보여준다 */
-function titleFromUrl(href: string): string {
+export function titleFromUrl(href: string): string {
   const host = new URL(href).hostname
   return (domainToUnicode(host) || host).slice(0, 100)
 }
