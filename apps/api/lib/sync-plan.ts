@@ -75,7 +75,7 @@ const clean = (s: string) => s.replace(/\s+/g, ' ').trim()
 export function fitGroupName(path: string, suffix = ''): string {
   const max = GROUP_NAME_MAX - chars(suffix).length
   const c = chars(path)
-  const base = c.length <= max ? path : '…' + c.slice(c.length - max).join('')
+  const base = c.length <= max ? path : '…' + c.slice(c.length - (max - 1)).join('')
   return base + suffix
 }
 
