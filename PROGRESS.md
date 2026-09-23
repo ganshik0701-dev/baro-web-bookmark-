@@ -3,11 +3,10 @@
 전체 계획의 현재 상태. 작업이 끝날 때마다 여기 체크박스를 채운다.
 상세 내용은 `docs/05-roadmap.md`, 작업 지시 문구는 `docs/06-prompts.md`.
 
-마지막 갱신: 2026-09-23 (4주차 완료: apps/extension EXT-01~04 운영 확인)
+마지막 갱신: 2026-09-23 (테스트 전용 계정 준비, CI 단위 테스트 실행)
 
 **다음 작업 (순서대로)**
-1. (5주차 전) 테스트 전용 Google 계정 준비
-2. CI에서 단위 테스트 실행 (DB·네트워크 불필요한 것만)
+1. DESK-01: 크롬 `Bookmarks` 파일 탐색·파싱 (5주차 시작)
 
 ---
 
@@ -165,6 +164,14 @@
     - 1회차 ⑤의 '추가 1'이 DB에 없던 원인은 끝내 확인 못 함(그 뒤 삭제된 것으로 추정, 기록 없음)
     - 정리: 확장 토큰 폐기, 북마크 2개 API로 삭제, `last_synced_at` 원복, 로그아웃·파일 삭제 → 계정 북마크·그룹·토큰 0
 - [x] 크롬에서 북마크 추가 → DB 반영 확인 (iana.org, 약 2초. 위 EXT-02 항목)
+- [x] CI에서 단위 테스트 실행 (DB·외부 사이트가 필요 없는 것만)
+  - [x] 루트 `pnpm test`(로컬용) 추가, CI는 패키지별 3단계로 나눠 실행 — 어느 패키지가 몇 개를 건너뛰었는지 로그에서 읽히게
+  - [x] 건너뛰기는 기존 `describe.skipIf` 그대로: CI에 `DATABASE_POOLER_URL`·`METADATA_LIVE`가 없어 저절로 건너뛴다. 운영 DB가 하나뿐이라 CI에 DB 주소를 넣지 않는다
+  - [x] 초록 확인(49db3fd): shared 52, extension 32, api 105 통과 / api 48 건너뜀 — 요약 줄 `105 passed | 48 skipped (153)`
+    - 건너뛴 48개: 실제 DB 37(db 4, bookmarks 8, api-tokens 10, sync-retry 2, sync 13) + 외부 사이트 11(metadata `METADATA_LIVE`)
+  - [x] 빨간 확인(f041c43): `fitGroupName`을 일부러 30자를 한 글자 넘기게 바꿔 푸시 → typecheck·shared·extension 통과, **api 테스트 단계에서 실패**, build는 건너뜀
+  - [x] 되돌림(12efaa3, revert) 후 다시 초록 확인
+  - 참고: SSRF IP 판정(`isPublicUnicast`)을 망가뜨리는 쪽을 먼저 시도했으나 보안 방어를 약화시키는 커밋이라 막혀서, 보안과 무관한 그룹 이름 자르기로 바꿨다
 
 ## 5주차 — 파일 동기화
 
