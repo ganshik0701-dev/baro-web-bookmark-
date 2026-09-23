@@ -18,4 +18,15 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+      # 단위 테스트는 패키지별로 나눠 돌린다. 한 번에 돌리면 출력이 섞여
+      # 어느 패키지가 몇 개를 건너뛰었는지 로그에서 읽기 어렵다.
+      # CI에는 DATABASE_POOLER_URL(실제 DB)도 METADATA_LIVE(외부 사이트)도 없으므로
+      # 그 테스트들은 `describe.skipIf`로 저절로 건너뛴다. 건너뛴 개수는 각 단계 끝 요약 줄에 나온다.
+      # 운영 DB가 하나뿐이라(개발용 DB 분리 전) CI에 DB 주소를 넣지 않는다.
+      - name: 단위 테스트 - packages/shared
+        run: pnpm --filter @baro/shared test
+      - name: 단위 테스트 - apps/extension
+        run: pnpm --filter @baro/extension test
+      - name: 단위 테스트 - apps/api (DB·외부 사이트가 필요한 것은 건너뜀)
+        run: pnpm --filter @baro/api test
       - run: pnpm --filter @baro/api build

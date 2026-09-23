@@ -10,6 +10,7 @@
     "build:desktop": "pnpm --filter @baro/desktop build",
     "build:api": "pnpm --filter @baro/api build",
     "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
     "lint": "pnpm -r lint"
   },
   "devDependencies": {
