@@ -27,6 +27,8 @@ jobs:
         run: pnpm --filter @baro/shared test
       - name: 단위 테스트 - apps/extension
         run: pnpm --filter @baro/extension test
+      - name: 단위 테스트 - apps/desktop
+        run: pnpm --filter @baro/desktop test
       - name: 단위 테스트 - apps/api (DB·외부 사이트가 필요한 것은 건너뜀)
         run: pnpm --filter @baro/api test
       - run: pnpm --filter @baro/api build
