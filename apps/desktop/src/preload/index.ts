@@ -1,8 +1,9 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import type { ApiFailure, ApiSuccess, AuthStatus, HealthResponse } from '@baro/shared'
+import type { ApiFailure, ApiSuccess, AuthStatus, BookmarkSource, HealthResponse } from '@baro/shared'
 // 타입만 가져온다(번들에 메인 코드가 들어가지 않는다)
 import type { ChromeProfile } from '../main/chrome-profiles'
-import type { BookmarkListResult } from '../main/api-client'
+import type { BookmarkListResult, BookmarkResult, DoneResult } from '../main/api-client'
+import type { TileMenuChoice } from '../main/tile-menu'
 import type { ChromeReadResult, ChromeSelection } from '../main/chrome-selection'
 import type { SyncState } from '../main/sync'
 
@@ -41,6 +42,15 @@ const api = {
 
   // SCR-03. GET /bookmarks. 인자 없음. 실패하면 { error }가 온다(예외를 던지지 않는다)
   listBookmarks: (): Promise<BookmarkListResult> => ipcRenderer.invoke('bookmarks:list'),
+  // OPEN-02. 방문 기록. 열기에 성공한 뒤에 부른다. 실패해도 { error }로 올 뿐 던지지 않는다
+  recordVisit: (id: string): Promise<DoneResult> => ipcRenderer.invoke('bookmarks:visit', id),
+  // OPEN-03. 고정/해제. 성공하면 바뀐 북마크가 온다
+  setPinned: (id: string, pinned: boolean): Promise<BookmarkResult> => ipcRenderer.invoke('bookmarks:setPinned', id, pinned),
+  // BM-05. 5초 기다린 뒤에 부른다(기다리기는 렌더러가 한다)
+  deleteBookmark: (id: string): Promise<DoneResult> => ipcRenderer.invoke('bookmarks:delete', id),
+  // OPEN-03. 네이티브 보조 메뉴. 고른 항목 이름만 온다(안 고르면 null). x·y는 키보드로 열 때 타일 아래 좌표
+  showTileMenu: (input: { isPinned: boolean; source: BookmarkSource; x?: number; y?: number }): Promise<TileMenuChoice | null> =>
+    ipcRenderer.invoke('bookmarks:menu', input),
 
   // DESK-03. 렌더러는 '지금 동기화'만 알린다. 삭제 확인 개수(confirmDeleteCount)는 메인이 정한다
   syncNow: (): Promise<SyncState> => ipcRenderer.invoke('sync:now'),

@@ -2,6 +2,7 @@
 // API가 요청 바디를 검증할 때와 앱 화면이 폼을 검증할 때 같은 스키마를 쓴다.
 // 동기화(/sync/chrome)·그룹·토큰 스키마는 해당 작업 때 따로 추가한다.
 import { z } from 'zod'
+import type { BookmarkSource } from './types'
 
 const URL_MAX = 2048
 
@@ -138,6 +139,8 @@ export type Bookmark = {
   tags: string[]
   isPinned: boolean
   position: number
+  /** 어디서 왔나. 앱은 크롬에서 온 것(app_sync·ext_sync)의 삭제를 막는다(docs/01-spec.md '열기와 보조 메뉴 규칙') */
+  source: BookmarkSource
   clickCount: number
   lastVisitedAt: string | null
   createdAt: string

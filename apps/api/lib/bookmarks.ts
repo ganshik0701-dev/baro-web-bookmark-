@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto'
 import { domainToUnicode } from 'node:url'
 import { and, desc, eq, isNull, ne, sql } from 'drizzle-orm'
 import { bookmarks, groups } from '@baro/db'
-import { normalizeUrl, type Bookmark, type CreateBookmarkInput, type UpdateBookmarkInput } from '@baro/shared'
+import { normalizeUrl, type Bookmark, type BookmarkSource, type CreateBookmarkInput, type UpdateBookmarkInput } from '@baro/shared'
 import type { AuthContext } from './auth'
 import { withUserDb, type Tx } from './db'
 import { ApiError } from './errors'
@@ -23,6 +23,8 @@ function toBookmark(r: Row): Bookmark {
     tags: r.tags,
     isPinned: r.isPinned,
     position: r.position,
+    // DB 체크 제약(bookmarks_source_check)이 이 네 값만 허용한다
+    source: r.source as BookmarkSource,
     clickCount: r.clickCount,
     lastVisitedAt: r.lastVisitedAt?.toISOString() ?? null,
     createdAt: r.createdAt.toISOString()
@@ -149,6 +151,17 @@ export function deleteBookmark(auth: AuthContext, id: string): Promise<void> {
       .where(and(eq(bookmarks.id, id), eq(bookmarks.userId, auth.userId)))
       .returning({ id: bookmarks.id })
     if (deleted.length === 0) throw notFound()
+  })
+}
+
+/**
+ * OPEN-02. 방문 1회(click_count + 1, last_visited_at, visit_logs)를 record_visit 함수 하나로 기록한다.
+ * 함수가 auth.uid()로 주인을 확인하므로 사용자 권한(withUserDb) 안에서 불러야 한다.
+ * 없는 id·남의 북마크면 함수가 아무것도 바꾸지 않고 끝난다 → 라우트는 그래도 204(docs/03-api.md)
+ */
+export function recordVisit(auth: AuthContext, id: string): Promise<void> {
+  return withUserDb(auth, async (tx) => {
+    await tx.execute(sql`select public.record_visit(${id}::uuid)`)
   })
 }
 

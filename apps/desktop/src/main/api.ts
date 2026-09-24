@@ -1,6 +1,15 @@
 // 메인 프로세스에서만 하는 인증 API 호출 (CLAUDE.md: 앱의 API 호출은 메인 프로세스에서만).
 // 토큰은 여기서 붙이고 렌더러로 돌려보내지 않는다. path에는 코드에 고정된 값만 넘긴다.
-import { fetchBookmarks, type ApiDeps, type BookmarkListResult } from './api-client'
+import {
+  deleteBookmarkById,
+  fetchBookmarks,
+  patchPinned,
+  postVisit,
+  type ApiDeps,
+  type BookmarkListResult,
+  type BookmarkResult,
+  type DoneResult
+} from './api-client'
 import { forceRefresh, getAccessToken } from './auth'
 
 export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1'
@@ -17,6 +26,11 @@ export const apiDeps: ApiDeps = {
 export function listBookmarks(): Promise<BookmarkListResult> {
   return fetchBookmarks(apiDeps)
 }
+
+/** OPEN-02·03, BM-05. id·값 검사는 api-client가 한다(렌더러가 보낸 값이 그대로 오므로) */
+export const recordVisit = (id: unknown): Promise<DoneResult> => postVisit(apiDeps, id)
+export const setPinned = (id: unknown, pinned: unknown): Promise<BookmarkResult> => patchPinned(apiDeps, id, pinned)
+export const deleteBookmark = (id: unknown): Promise<DoneResult> => deleteBookmarkById(apiDeps, id)
 
 /**
  * GET /me의 필요한 부분만. 실패하면 null(프로필 복원은 없으면 없는 대로 넘어간다).

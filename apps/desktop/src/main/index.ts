@@ -1,7 +1,8 @@
-import { app, BrowserWindow, dialog, shell, ipcMain, type OpenDialogOptions } from 'electron'
+import { app, BrowserWindow, dialog, Menu, shell, ipcMain, type MenuItemConstructorOptions, type OpenDialogOptions } from 'electron'
 import { join } from 'node:path'
 import type { ApiFailure, ApiSuccess, HealthResponse, MassDeleteDetails } from '@baro/shared'
-import { API_BASE, apiDeps, fetchMe, listBookmarks } from './api'
+import { API_BASE, apiDeps, deleteBookmark, fetchMe, listBookmarks, recordVisit, setPinned } from './api'
+import { parseTileMenuInput, tileMenuItems, type TileMenuChoice } from './tile-menu'
 import {
   cancelLogin,
   getAuthStatus,
@@ -117,9 +118,49 @@ function registerIpc(): void {
   // SCR-03. 인자를 받지 않는다(정렬·필터는 SEARCH-04에서 정해진 값만 받게 한다).
   // 토큰은 메인에서 붙이고, 렌더러는 { data, meta } 또는 { error }만 받는다
   ipcMain.handle('bookmarks:list', () => listBookmarks())
+
+  // OPEN-02·03, BM-05. id는 렌더러가 보내므로 api-client가 uuid인지 확인한 뒤에만 요청한다
+  ipcMain.handle('bookmarks:visit', (_event, id: unknown) => recordVisit(id))
+  ipcMain.handle('bookmarks:setPinned', (_event, id: unknown, pinned: unknown) => setPinned(id, pinned))
+  ipcMain.handle('bookmarks:delete', (_event, id: unknown) => deleteBookmark(id))
+  // 보조 메뉴는 OS 네이티브 메뉴로 띄우고, 고른 항목 이름만 돌려준다(요청은 렌더러가 항목별로 한다)
+  ipcMain.handle('bookmarks:menu', (event, raw: unknown) =>
+    showTileMenu(BrowserWindow.fromWebContents(event.sender), raw)
+  )
   ipcMain.handle('sync:state', () => syncState)
   // SCR-02 모달의 답. true/false만 받는다(삭제 개수는 메인이 들고 있다)
   ipcMain.handle('sync:confirm', (_event, ok: unknown) => settleConfirm(ok === true))
+}
+
+// ─── OPEN-03 보조 메뉴 ────────────────────────────────────────
+/**
+ * 타일 보조 메뉴를 띄우고 고른 항목을 돌려준다. 아무것도 고르지 않고 닫으면 null.
+ * 메뉴가 닫히는 알림(callback)이 항목 click보다 먼저 올 때가 있어(Windows), 닫힘 뒤 잠깐 기다렸다가 null로 끝낸다
+ */
+function showTileMenu(win: BrowserWindow | null, raw: unknown): Promise<TileMenuChoice | null> {
+  const input = parseTileMenuInput(raw)
+  if (!win || !input) return Promise.resolve(null)
+  return new Promise((resolve) => {
+    let settled = false
+    const done = (choice: TileMenuChoice | null) => {
+      if (settled) return
+      settled = true
+      resolve(choice)
+    }
+    const template: MenuItemConstructorOptions[] = tileMenuItems(input).map((item) =>
+      item.kind === 'separator'
+        ? { type: 'separator' }
+        : item.kind === 'note'
+          ? { label: item.label, enabled: false }
+          : { label: item.label, enabled: item.enabled, click: () => done(item.choice) }
+    )
+    Menu.buildFromTemplate(template).popup({
+      window: win,
+      // 키보드로 열면 렌더러가 타일 아래 좌표를 준다. 없으면 마우스 위치
+      ...(input.x !== undefined && input.y !== undefined && { x: input.x, y: input.y }),
+      callback: () => setTimeout(() => done(null), 100)
+    })
+  })
 }
 
 // ─── DESK-03 동기화 ────────────────────────────────────────────

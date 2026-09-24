@@ -1,7 +1,15 @@
 // 인증 API 호출 공통 부분(authedFetch)과 GET /bookmarks(fetchBookmarks).
 // 진짜 서버 없이 가짜 fetch로, 요청이 몇 번 나갔는지와 어떤 토큰을 실었는지를 센다.
 import { describe, expect, it } from 'vitest'
-import { authedFetch, fetchBookmarks, type ApiDeps } from '../src/main/api-client'
+import {
+  authedFetch,
+  deleteBookmarkById,
+  fetchBookmarks,
+  isBookmarkId,
+  patchPinned,
+  postVisit,
+  type ApiDeps
+} from '../src/main/api-client'
 
 const BOOKMARK = {
   id: 'b1',
@@ -37,7 +45,8 @@ function setup(replies: Reply[], opts: { tokens?: (string | null)[]; refreshOk?:
       const r = replies.shift()
       if (!r) throw new Error('예상보다 요청이 많다')
       if (r === 'network-error') throw new TypeError('fetch failed')
-      return new Response(r.text ?? JSON.stringify(r.body), { status: r.status })
+      // 204는 본문이 없어야 한다(Response가 본문 있는 204를 거절한다)
+      return new Response(r.status === 204 ? null : (r.text ?? JSON.stringify(r.body)), { status: r.status })
     }) as typeof fetch
   }
   return { deps, sent, refreshes: () => refreshes }
@@ -138,5 +147,67 @@ describe('fetchBookmarks (GET /bookmarks)', () => {
     const s = setup([], { tokens: [null] })
     expect(await fetchBookmarks(s.deps)).toEqual({ error: { code: 'UNAUTHORIZED', message: '로그인이 필요합니다' } })
     expect(s.sent).toHaveLength(0)
+  })
+})
+
+describe('북마크 하나에 대한 요청 (OPEN-02·03, BM-05)', () => {
+  const ID = '36ea8f78-0e5e-4948-9911-d0d4b20c6085'
+
+  it.each([
+    ['../me', false],
+    ['36ea8f78-0e5e-4948-9911-d0d4b20c6085/../../me', false],
+    ['not-a-uuid', false],
+    ['', false],
+    [123, false],
+    [null, false],
+    [ID, true],
+    [ID.toUpperCase(), true]
+  ])('isBookmarkId(%j) → %s', (id, ok) => {
+    expect(isBookmarkId(id)).toBe(ok)
+  })
+
+  it('id가 uuid가 아니면 요청을 하나도 보내지 않는다(주소에 끼워 다른 경로를 부르지 못하게)', async () => {
+    const s = setup([])
+    for (const bad of ['../me', `${ID}/../../tokens`, 'x', 42]) {
+      expect(await postVisit(s.deps, bad)).toMatchObject({ error: { code: 'INVALID_ID' } })
+      expect(await patchPinned(s.deps, bad, true)).toMatchObject({ error: { code: 'INVALID_ID' } })
+      expect(await deleteBookmarkById(s.deps, bad)).toMatchObject({ error: { code: 'INVALID_ID' } })
+    }
+    // 고정 값이 boolean이 아니어도 보내지 않는다
+    expect(await patchPinned(s.deps, ID, 'yes')).toMatchObject({ error: { code: 'INVALID_ID' } })
+    expect(s.sent).toHaveLength(0)
+  })
+
+  it('방문: POST …/visit, 204면 ok', async () => {
+    const s = setup([{ status: 204, text: '' }])
+    expect(await postVisit(s.deps, ID)).toEqual({ ok: true })
+    expect(s.sent[0]).toMatchObject({ method: 'POST', url: `http://api.test/api/v1/bookmarks/${ID}/visit` })
+  })
+
+  it('고정: PATCH { isPinned }, 바뀐 북마크를 돌려준다', async () => {
+    const s = setup([{ status: 200, body: { data: { ...BOOKMARK, id: ID, isPinned: true } } }])
+    expect(await patchPinned(s.deps, ID, true)).toMatchObject({ data: { id: ID, isPinned: true } })
+    expect(s.sent[0]).toMatchObject({ method: 'PATCH', url: `http://api.test/api/v1/bookmarks/${ID}`, body: '{"isPinned":true}' })
+  })
+
+  it('삭제: DELETE, 204면 ok / 404면 서버 코드 그대로', async () => {
+    const s = setup([
+      { status: 204, text: '' },
+      { status: 404, body: { error: { code: 'BOOKMARK_NOT_FOUND', message: '북마크를 찾을 수 없습니다' } } }
+    ])
+    expect(await deleteBookmarkById(s.deps, ID)).toEqual({ ok: true })
+    expect(await deleteBookmarkById(s.deps, ID)).toEqual({ error: { code: 'BOOKMARK_NOT_FOUND', message: '북마크를 찾을 수 없습니다' } })
+    expect(s.sent.map((x) => x.method)).toEqual(['DELETE', 'DELETE'])
+  })
+
+  it('401이면 공통 규칙대로 갱신 후 1회 재시도한다(방문도 같은 통로)', async () => {
+    const s = setup([{ status: 401, body: {} }, { status: 204, text: '' }])
+    expect(await postVisit(s.deps, ID)).toEqual({ ok: true })
+    expect(s.sent.map((x) => x.auth)).toEqual(['Bearer t1', 'Bearer t2'])
+  })
+
+  it('연결 실패는 NETWORK (던지지 않는다)', async () => {
+    const s = setup(['network-error'])
+    expect(await deleteBookmarkById(s.deps, ID)).toMatchObject({ error: { code: 'NETWORK' } })
   })
 })

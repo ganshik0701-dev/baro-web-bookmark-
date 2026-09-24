@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { sql } from 'drizzle-orm'
 import { createBookmarkInput, updateBookmarkInput, type Bookmark } from '@baro/shared'
 import type { AuthContext } from './auth'
-import { createBookmark, deleteBookmark, getBookmark, listBookmarks, updateBookmark } from './bookmarks'
+import { createBookmark, deleteBookmark, getBookmark, listBookmarks, recordVisit, updateBookmark } from './bookmarks'
 import { closeRawDb, getRawDb } from './db-client'
 import { ApiError } from './errors'
 
@@ -147,5 +147,30 @@ describe.skipIf(!process.env.DATABASE_POOLER_URL)('bookmarks (BM-01~05)', () => 
     const list = await listBookmarks(A)
     const firstUnpinned = list.findIndex((b) => !b.isPinned)
     expect(list.slice(firstUnpinned).every((b) => !b.isPinned)).toBe(true)
+  })
+
+  it('응답에 source가 있다: 바로에서 추가한 것은 manual', async () => {
+    const b = await create(A, { url: 'https://source-check.example.com' })
+    expect(b.source).toBe('manual')
+    expect((await listBookmarks(A)).find((x) => x.id === b.id)?.source).toBe('manual')
+  })
+
+  it('방문 기록(OPEN-02): 두 번 → click_count 2·last_visited_at·visit_logs 2행, 남의 것·없는 id는 조용히 아무 변화 없음', async () => {
+    const v = await create(A, { url: 'https://visit-me.example.com' })
+    const logs = async () =>
+      Number((await getRawDb().execute(sql`select count(*)::int as n from public.visit_logs where bookmark_id = ${v.id}`))[0].n)
+
+    await recordVisit(A, v.id)
+    await recordVisit(A, v.id)
+    const after = await getBookmark(A, v.id)
+    expect(after.clickCount).toBe(2)
+    expect(after.lastVisitedAt).not.toBeNull()
+    expect(await logs()).toBe(2)
+
+    // B가 A의 북마크로 불러도 오류 없이 끝나고 아무것도 바뀌지 않는다(존재 여부를 알려 주지 않는다)
+    await expect(recordVisit(B, v.id)).resolves.toBeUndefined()
+    await expect(recordVisit(A, randomUUID())).resolves.toBeUndefined()
+    expect((await getBookmark(A, v.id)).clickCount).toBe(2)
+    expect(await logs()).toBe(2)
   })
 })

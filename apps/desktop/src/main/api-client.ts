@@ -25,7 +25,7 @@ export type AuthedFetchResult =
 export async function authedFetch(
   deps: ApiDeps,
   path: `/${string}`,
-  init: { method?: 'GET' | 'POST'; body?: string; timeoutMs: number },
+  init: { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: string; timeoutMs: number },
   isRetry = false
 ): Promise<AuthedFetchResult> {
   const token = await deps.getAccessToken()
@@ -74,4 +74,55 @@ export async function fetchBookmarks(deps: ApiDeps): Promise<BookmarkListResult>
   }
   if (body && 'error' in body && body.error) return { error: { code: body.error.code, message: body.error.message } }
   return { error: { code: `HTTP_${res.status}`, message: `서버가 ${res.status}로 응답했습니다` } }
+}
+
+// ─── 북마크 하나에 대한 요청 (OPEN-02·03, BM-05) ─────────────────────────
+// id는 렌더러에서 오지만 주소에 들어간다. uuid 모양이 아니면 요청하지 않는다('../me' 같은 값으로 다른 경로를 못 부르게)
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export function isBookmarkId(id: unknown): id is string {
+  return typeof id === 'string' && UUID.test(id)
+}
+
+/** 성공하면 { ok: true } 또는 { data }, 실패하면 { error }. 예외를 던지지 않는다 */
+export type DoneResult = { ok: true } | ApiFailure
+export type BookmarkResult = { data: Bookmark } | ApiFailure
+
+const INVALID_ID: ApiFailure = { error: { code: 'INVALID_ID', message: '북마크 id가 올바르지 않습니다' } }
+
+/** 응답 본문의 { error }를 꺼내거나, 없으면 상태 코드로 만든다 */
+async function failureOf(res: Response): Promise<ApiFailure> {
+  const body = (await res.json().catch(() => null)) as ApiFailure | null
+  if (body && 'error' in body && body.error) return { error: { code: body.error.code, message: body.error.message } }
+  return { error: { code: `HTTP_${res.status}`, message: `서버가 ${res.status}로 응답했습니다` } }
+}
+
+/** POST /bookmarks/:id/visit (OPEN-02). 204면 성공 */
+export async function postVisit(deps: ApiDeps, id: unknown): Promise<DoneResult> {
+  if (!isBookmarkId(id)) return INVALID_ID
+  const r = await authedFetch(deps, `/bookmarks/${id}/visit`, { method: 'POST', timeoutMs: 10_000 })
+  if (r.kind === 'error') return { error: { code: r.code, message: r.message } }
+  return r.res.ok ? { ok: true } : failureOf(r.res)
+}
+
+/** PATCH /bookmarks/:id { isPinned } (OPEN-03). 바뀐 북마크를 돌려준다 */
+export async function patchPinned(deps: ApiDeps, id: unknown, pinned: unknown): Promise<BookmarkResult> {
+  if (!isBookmarkId(id) || typeof pinned !== 'boolean') return INVALID_ID
+  const r = await authedFetch(deps, `/bookmarks/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isPinned: pinned }),
+    timeoutMs: 10_000
+  })
+  if (r.kind === 'error') return { error: { code: r.code, message: r.message } }
+  if (!r.res.ok) return failureOf(r.res)
+  const body = (await r.res.json().catch(() => null)) as { data?: Bookmark } | null
+  return body?.data ? { data: body.data } : { error: { code: `HTTP_${r.res.status}`, message: '응답을 읽지 못했습니다' } }
+}
+
+/** DELETE /bookmarks/:id (BM-05). 5초 기다리기는 렌더러가 하고, 여기는 보내기만 한다 */
+export async function deleteBookmarkById(deps: ApiDeps, id: unknown): Promise<DoneResult> {
+  if (!isBookmarkId(id)) return INVALID_ID
+  const r = await authedFetch(deps, `/bookmarks/${id}`, { method: 'DELETE', timeoutMs: 10_000 })
+  if (r.kind === 'error') return { error: { code: r.code, message: r.message } }
+  return r.res.ok ? { ok: true } : failureOf(r.res)
 }
