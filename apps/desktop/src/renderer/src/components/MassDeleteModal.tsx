@@ -37,11 +37,11 @@ export default function MassDeleteModal({ details }: { details: MassDeleteDetail
         <ul className="modal-preview">
           {details.preview.map((b) => (
             <li key={b.url}>
-              <span className="preview-title">{b.title || '(제목 없음)'}</span>
-              <span className="preview-url">{b.url}</span>
+              <span className="modal-preview-title">{b.title || '(제목 없음)'}</span>
+              <span className="modal-preview-url">{b.url}</span>
             </li>
           ))}
-          {more > 0 && <li className="preview-more">그 밖에 {more}개</li>}
+          {more > 0 && <li className="modal-preview-more">그 밖에 {more}개</li>}
         </ul>
 
         <div className="modal-actions">

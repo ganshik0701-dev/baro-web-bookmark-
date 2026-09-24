@@ -1,0 +1,102 @@
+/*
+ * 디자인 토큰 — 여러 화면이 함께 쓰는 디자인 값은 전부 여기에 있다.
+ * 값만 바꾸고 저장하면 된다. 무엇이 바뀌는지는 docs/04-design.md '어디를 고치면 무엇이 바뀌는가' 표.
+ * 다른 CSS·TSX 파일은 여기 값을 var(--이름)으로 가져다 쓰기만 한다.
+ * 다크 테마(v1.1 SET-02)는 같은 이름을 어두운 값으로 덮어쓴다.
+ */
+:root {
+  /* ── 색 ─────────────────────────────────────────── */
+  --bg: #f7f5f0;
+  --surface: #ffffff;
+  --chrome: #efece4;
+  --border: #e3dfd5;
+  --border-strong: #c9c3b5;
+  --divider: #eeeae0;
+  --text: #1a1917;
+  --text-muted: #55524c;
+  --text-subtle: #6b6862;
+  --accent: #a8481a;
+  --accent-soft: #fcf4ee;
+  --track: #eae5da;
+  --success: #3f7a5e;
+  --danger: #8c2f1b;
+  --backdrop: rgb(26 25 23 / 45%);
+
+  /* 글자 타일 팔레트(도메인 해시로 하나를 고른다). 글자는 --tile-text */
+  --tile-1: #2b3a67;
+  --tile-2: #a8481a;
+  --tile-3: #2f5d50;
+  --tile-4: #6b3f8c;
+  --tile-5: #8a4b1f;
+  --tile-6: #1f5468;
+  --tile-7: #7a3b6b;
+  --tile-8: #4a4640;
+  --tile-text: #ffffff;
+
+  /* ── 글자 ───────────────────────────────────────── */
+  /* 글꼴은 앱에 들어 있다(main.tsx). 뒤의 이름들은 파일을 못 읽었을 때의 대비용 */
+  --font-serif: 'Gowun Batang', serif;
+  --font-sans: 'IBM Plex Sans KR', 'Malgun Gothic', system-ui, sans-serif;
+  --text-title: 27px;
+  --text-section: 15px;
+  --text-body: 14px;
+  --leading-body: 1.7;
+  --text-caption: 12.5px;
+  --text-small: 12px;
+  --text-tile-label: 12.5px;
+
+  /* ── 화면 여백 ──────────────────────────────────── */
+  --page-x: 28px;
+  --page-top: 20px;
+  --section-gap: 20px;
+  --section-title-gap: 12px;
+  --statusbar-height: 34px;
+
+  /* ── 버튼 ───────────────────────────────────────── */
+  /* 공통: 기본·보조·위험이 함께 쓴다 */
+  --btn-height: 44px;
+  --btn-height-secondary: 40px;
+  --btn-pad-x: 22px;
+  --btn-pad-x-secondary: 16px;
+  --btn-radius: 12px;
+  --btn-font-size: 14px;
+  --btn-font-weight: 500;
+  --btn-border-width: 1px;
+  /* 종류별 차이는 색뿐이다 */
+  --btn-primary-bg: var(--accent);
+  --btn-primary-text: #ffffff;
+  --btn-primary-disabled-bg: var(--border-strong);
+  --btn-secondary-bg: var(--surface);
+  --btn-secondary-text: var(--text);
+  --btn-secondary-border: var(--border-strong);
+  --btn-danger-bg: var(--danger);
+  --btn-danger-text: #ffffff;
+
+  /* ── 카드·패널 ──────────────────────────────────── */
+  --card-radius: 18px;
+  --card-radius-lg: 22px;
+  --card-radius-sm: 14px;
+  --card-pad: 22px;
+  --card-border-width: 1px;
+
+  /* ── 그리드 (SCR-03) ────────────────────────────── */
+  /* 기준점은 px로만 쓴다. CSS가 아니라 JS가 읽어서 열을 정한다 */
+  --grid-bp-sm: 800px;
+  --grid-bp-md: 1100px;
+  --grid-cols-sm: 6;
+  --grid-cols-md: 8;
+  --grid-cols-lg: 10;
+  --tile-size-sm: 56px;
+  --tile-size-md: 64px;
+  --tile-size-lg: 72px;
+  --tile-radius: 18px;
+  --tile-letter-ratio: 0.4;
+  --tile-favicon-ratio: 0.5;
+  --grid-gap-row: 16px;
+  --grid-gap-col: 12px;
+  --tile-label-gap: 9px;
+  --tile-label-max: 104px;
+
+  /* ── 그 밖 ──────────────────────────────────────── */
+  --focus-ring-width: 2px;
+}
