@@ -60,11 +60,11 @@ const toSelection = (p: ChromeProfile): ChromeSelection => ({
 
 /**
  * 지금 읽어야 할 대상. 순서는 docs/01-spec.md '표시 이름과 자동 선택':
- * ①저장해 둔 선택 ②Local State의 last_used ③Default ④수정 시각 최근
- * ②~④는 findChromeProfiles가 이미 그 순서로 정렬해 돌려준다.
+ * ①저장해 둔 선택 ②서버 GET /me의 chromeProfile ③Local State의 last_used ④Default ⑤수정 시각 최근
+ * ③~⑤는 findChromeProfiles가 이미 그 순서로 정렬해 돌려준다.
  * 저장해 둔 프로필이 사라졌으면(프로필 삭제) 조용히 다음으로 내려간다
  */
-export async function getChromeSelection(): Promise<ChromeSelection | null> {
+export async function getChromeSelection(serverProfile?: string | null): Promise<ChromeSelection | null> {
   const saved = await loadSaved()
   if (saved?.kind === 'file') return { kind: 'file', bookmarksPath: saved.bookmarksPath }
 
@@ -72,6 +72,11 @@ export async function getChromeSelection(): Promise<ChromeSelection | null> {
   if (saved?.kind === 'profile') {
     const still = profiles.find((p) => p.name === saved.name)
     if (still) return toSelection(still)
+  }
+  // 이 PC에 저장한 것이 없으면 서버가 기억하는 프로필을 쓴다(다른 PC에서 고른 것)
+  if (serverProfile) {
+    const fromServer = profiles.find((p) => p.name === serverProfile)
+    if (fromServer) return toSelection(fromServer)
   }
   return profiles[0] ? toSelection(profiles[0]) : null
 }

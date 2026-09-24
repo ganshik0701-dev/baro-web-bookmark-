@@ -216,6 +216,29 @@ async function runRefresh(kind: 'restore' | 'refresh'): Promise<void> {
   }
 }
 
+/**
+ * API 호출에 쓸 액세스 토큰 (DESK-03). 로그인 전이면 null.
+ * 만료가 가까우면 여기서 먼저 갱신한다. 갱신은 pendingRefresh를 타므로 동시에 여러 번 불러도
+ * 요청은 한 번만 나간다(리프레시 토큰은 쓸 때마다 바뀌어서 같은 토큰으로 두 번 보내면 안 된다).
+ * 토큰 값은 이 파일과 API를 부르는 곳에만 있고, 렌더러로 넘기거나 로그에 찍지 않는다
+ */
+export async function getAccessToken(): Promise<string | null> {
+  if (!session) return null
+  const remainMs = session.expiresAt * 1000 - Date.now()
+  if (remainMs < REFRESH_MARGIN_SEC * 1000) await refresh('refresh')
+  return session?.accessToken ?? null
+}
+
+/**
+ * 서버가 401을 준 뒤 한 번 더 갱신해 볼 때만 쓴다(DESK-03의 1회 재시도).
+ * 갱신에 성공해 세션이 남아 있으면 true
+ */
+export async function forceRefresh(): Promise<boolean> {
+  if (!session) return false
+  await refresh('refresh')
+  return session !== null
+}
+
 export function logout(): Promise<AuthStatus> {
   pendingLogout ??= runLogout().finally(() => {
     pendingLogout = null

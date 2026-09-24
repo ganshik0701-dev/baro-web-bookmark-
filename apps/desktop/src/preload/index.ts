@@ -3,6 +3,7 @@ import type { ApiFailure, ApiSuccess, AuthStatus, HealthResponse } from '@baro/s
 // 타입만 가져온다(번들에 메인 코드가 들어가지 않는다)
 import type { ChromeProfile } from '../main/chrome-profiles'
 import type { ChromeReadResult, ChromeSelection } from '../main/chrome-selection'
+import type { SyncState } from '../main/sync'
 
 // 렌더러에 노출하는 유일한 통로. 여기에 없는 기능은 렌더러에서 쓸 수 없다.
 // API는 범용 fetch를 노출하지 않고, 엔드포인트마다 인자가 정해진 함수만 둔다.
@@ -35,7 +36,17 @@ const api = {
   // 파일 선택 창은 메인이 연다. 취소하면 null
   pickChromeBookmarksFile: (): Promise<ChromeReadResult | null> => ipcRenderer.invoke('chrome:pickFile'),
   // 지금 선택된 프로필·파일을 읽는다
-  readChromeBookmarks: (): Promise<ChromeReadResult> => ipcRenderer.invoke('chrome:read')
+  readChromeBookmarks: (): Promise<ChromeReadResult> => ipcRenderer.invoke('chrome:read'),
+
+  // DESK-03. 렌더러는 '지금 동기화'만 알린다. 삭제 확인 개수(confirmDeleteCount)는 메인이 정한다
+  syncNow: (): Promise<SyncState> => ipcRenderer.invoke('sync:now'),
+  getSyncState: (): Promise<SyncState> => ipcRenderer.invoke('sync:state'),
+  // 자동 동기화도 메인에서 일어나므로 상태가 바뀌면 알려 준다
+  onSyncChanged: (fn: (state: SyncState) => void): (() => void) => {
+    const listener = (_event: IpcRendererEvent, state: SyncState): void => fn(state)
+    ipcRenderer.on('sync:changed', listener)
+    return () => ipcRenderer.removeListener('sync:changed', listener)
+  }
 }
 
 contextBridge.exposeInMainWorld('baro', api)

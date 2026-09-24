@@ -1,7 +1,18 @@
 import { app, BrowserWindow, dialog, shell, ipcMain, type OpenDialogOptions } from 'electron'
 import { join } from 'node:path'
-import type { ApiFailure, ApiSuccess, HealthResponse } from '@baro/shared'
-import { cancelLogin, getAuthStatus, initAuth, login, logout, onAuthChange } from './auth'
+import type { ApiFailure, ApiSuccess, HealthResponse, MassDeleteDetails } from '@baro/shared'
+import { API_BASE, fetchMe } from './api'
+import {
+  cancelLogin,
+  forceRefresh,
+  getAccessToken,
+  getAuthStatus,
+  initAuth,
+  login,
+  logout,
+  onAuthChange
+} from './auth'
+import { initialSyncState, runSync, type SyncState, type SyncTrigger } from './sync'
 import { readBookmarksFile } from './chrome-bookmarks'
 import { findChromeProfiles } from './chrome-profiles'
 import {
@@ -11,9 +22,9 @@ import {
   type ChromeReadResult
 } from './chrome-selection'
 
-// API 서버 주소 (apps/desktop/.env의 VITE_API_BASE_URL, 공개값). 렌더러에게서 주소를 받지 않는다.
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1'
-
+// API 서버 주소는 api.ts에 있다(인증 호출과 같은 값을 쓰기 위해).
+// 아래 callApi는 인증이 필요 없는 health 전용이다.
+//
 // 앱의 모든 API 호출이 지나는 곳 (CLAUDE.md: 앱의 API 호출은 메인 프로세스에서만).
 // 메인 프로세스(Node)의 fetch는 Origin 헤더를 붙이지 않아서 CORS와 무관하다.
 // path에는 코드에 고정된 값만 넘긴다. 렌더러가 보낸 문자열을 그대로 넣지 않는다.
@@ -101,11 +112,88 @@ function registerIpc(): void {
   ipcMain.handle('chrome:selectProfile', (_event, name: unknown) => selectChromeProfile(name))
   ipcMain.handle('chrome:pickFile', (event) => pickBookmarksFile(BrowserWindow.fromWebContents(event.sender)))
   ipcMain.handle('chrome:read', () => readSelectedBookmarks())
+
+  // DESK-03. 렌더러는 '지금 동기화'만 알린다. confirmDeleteCount 같은 숫자는 메인이 정한다
+  ipcMain.handle('sync:now', () => syncNow('manual'))
+  ipcMain.handle('sync:state', () => syncState)
+}
+
+// ─── DESK-03 동기화 ────────────────────────────────────────────
+let syncState: SyncState = initialSyncState
+// '지금 동기화'를 연타해도 요청은 하나만 나간다
+let pendingSync: Promise<SyncState> | null = null
+// 앱을 켠 뒤 자동 동기화는 한 번만 한다(로그인·갱신으로 상태가 여러 번 바뀌어도)
+let didStartupSync = false
+
+function setSyncState(next: SyncState): void {
+  syncState = next
+  for (const win of BrowserWindow.getAllWindows()) win.webContents.send('sync:changed', syncState)
+}
+
+/** 대량 삭제 확인 (DESK-03). 지워질 북마크 최대 5개를 보여준다. SCR-02에서 시안 모달로 바꾼다 */
+async function confirmMassDelete(details: MassDeleteDetails): Promise<boolean> {
+  setSyncState({ ...syncState, phase: 'needs_confirm', confirm: details })
+  const preview = details.preview.map((b) => `· ${b.title || b.url}`).join('\n')
+  const { response } = await dialog.showMessageBox({
+    type: 'warning',
+    buttons: ['취소', `${details.deleteCount}개 지우기`],
+    defaultId: 0,
+    cancelId: 0,
+    title: '바로',
+    message: `크롬에 없는 북마크 ${details.deleteCount}개를 바로에서 지울까요?`,
+    detail: `지금 바로에 있는 동기화 북마크 ${details.syncedTotal}개 중 ${details.deleteCount}개가 사라집니다.\n방문 기록도 함께 지워지고 되돌릴 수 없습니다.\n\n${preview}${details.preview.length < details.deleteCount ? '\n· …' : ''}`
+  })
+  return response === 1
+}
+
+/** 북마크가 0개일 때 (수동 동기화에서만 불린다) */
+async function confirmSuspicious(): Promise<boolean> {
+  const { response } = await dialog.showMessageBox({
+    type: 'warning',
+    buttons: ['취소', '그래도 동기화'],
+    defaultId: 0,
+    cancelId: 0,
+    title: '바로',
+    message: '크롬에서 북마크를 찾지 못했습니다',
+    detail:
+      '프로필을 잘못 골랐거나 파일을 읽지 못했을 수 있습니다.\n계속하면 바로의 동기화 북마크가 모두 지워질 수 있습니다.'
+  })
+  return response === 1
+}
+
+function syncNow(trigger: SyncTrigger): Promise<SyncState> {
+  pendingSync ??= runSync(
+    {
+      readBookmarks: readSelectedBookmarks,
+      getAccessToken,
+      forceRefresh,
+      fetch: globalThis.fetch,
+      apiBaseUrl: API_BASE,
+      confirmMassDelete,
+      confirmSuspicious
+    },
+    trigger
+  )
+    .catch((err: unknown) => ({
+      ...initialSyncState,
+      phase: 'error' as const,
+      error: { code: 'INTERNAL', message: err instanceof Error ? err.message : String(err) }
+    }))
+    .finally(() => {
+      pendingSync = null
+    })
+    .then((next) => {
+      setSyncState(next)
+      return next
+    })
+  setSyncState({ ...syncState, phase: 'syncing', error: null })
+  return pendingSync
 }
 
 /** 지금 선택된 프로필·파일을 읽는다. 선택이 없으면 그 사실을 알린다 */
 async function readSelectedBookmarks(): Promise<ChromeReadResult> {
-  const selection = await getChromeSelection()
+  // 이 PC에 저장한 선택이 없으면 서버가 기억하는 프로필을 쓴다(DESK-03)
+  const selection = await getChromeSelection((await fetchMe())?.chromeProfile)
   if (!selection) return { ok: false, reason: 'no_selection', message: '읽을 크롬 프로필을 찾지 못했습니다' }
   const result = await readBookmarksFile(selection.bookmarksPath)
   return result.ok ? { ok: true, selection, tree: result.tree } : { ...result, selection }
@@ -136,6 +224,12 @@ app.whenReady().then(() => {
   // 자동 로그인·갱신은 메인 프로세스에서 일어나므로, 바뀔 때마다 열린 창에 알린다(토큰 없는 상태만)
   onAuthChange((status) => {
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send('auth:changed', status)
+    // DESK-03. 로그인된 뒤 한 번만 자동 동기화한다(주기적 동기화는 두지 않는다).
+    // 자동은 북마크 0개면 보내지 않고, 대량 삭제는 확인을 거친다
+    if (status.session && !didStartupSync) {
+      didStartupSync = true
+      void syncNow('startup')
+    }
   })
   // safeStorage는 app ready 뒤에만 쓸 수 있어서 여기서 시작한다
   initAuth()
