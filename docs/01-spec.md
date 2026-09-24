@@ -87,7 +87,7 @@ URL 정규화 규칙: 호스트 소문자, 끝 슬래시 제거, `utm_*` 파라�
 | ID | 기능 | 요구사항 | 우선순위 |
 | --- | --- | --- | --- |
 | DESK-01 | 파일 읽기 | 기본 경로 탐색(`Default` 우선), 없으면 사용자가 파일 직접 선택. 파싱에 실패하거나 결과가 의심스러우면(`roots` 누락 등) **`full`을 보내지 않고 오류로 끝낸다**(빈 목록 full은 동기화분 전체 삭제가 된다). 최상위 폴더(북마크바·기타·모바일)는 folders에 넣지 않는다. 상세는 아래 'Bookmarks 파일 읽기 규칙' | P0 |
-| DESK-02 | 프로필 선택 | `Local State`에서 프로필 이름 읽어 목록 표시 | P1 |
+| DESK-02 | 프로필 선택 | 프로필이 여러 개면 목록에서 고른다(`Local State`에서 표시 이름 읽기). 기본 경로에서 못 찾으면 파일 직접 선택. 고른 것은 이 PC에 저장해 다음 실행 때 복원하고, 서버 `profiles.chrome_profile`은 동기화(DESK-03)가 갱신한다. 프로필을 잘못 고르면 남의 북마크를 동기화하게 되므로 P0 | P0 |
 | DESK-03 | 동기화 실행 | 앱 시작 시 자동 1회 + '지금 동기화' 버튼, 결과·시각 표시(건너뜀은 `skippedReasons`로 이유별). `409 MASS_DELETE_CONFIRM_REQUIRED`를 받으면 **아무것도 반영되지 않은 상태**이므로 "크롬에 없는 북마크 N개(방문 기록 포함)를 바로에서 지울까요?"를 묻고, 확인하면 같은 요청에 `confirmDeleteCount: N`을 붙여 다시 보낸다. 취소하면 이번 동기화는 건너뛰고 다음 동기화에서 다시 묻는다(자동 동기화 중이면 조용히 알림 배지로) | P0 |
 | DESK-04 | 오프라인 | 서버 응답 없으면 electron-store 캐시 표시 + 오프라인 배지 | P1 |
 | DESK-05 | 창·트레이 | 기본 1100×720, 크기 기억, 닫기 시 트레이로 | P1 |
@@ -100,7 +100,15 @@ URL 정규화 규칙: 호스트 소문자, 끝 슬래시 제거, `utm_*` 파라�
 파일 읽기·파싱은 **메인 프로세스에서만** 한다. 렌더러에는 preload로 결과만 넘긴다(읽기 함수 자체를 노출하지 않는다).
 크롬 `Bookmarks` 파일은 **읽기 전용**으로만 다룬다(`readFile`·`stat`만 쓴다).
 
-**프로필 탐색**: `%LOCALAPPDATA%\Google\Chrome\User Data\` 아래 `Default`·`Profile 1`·`Profile 2`… 중 `Bookmarks` 파일이 있는 폴더만 후보로 모은다. 자동 선택은 `Default` 우선, 없으면 `Bookmarks` 수정 시각이 가장 최근인 것. 서버로 보내는 `profile`은 폴더 이름(`"Default"`)이다. 프로필 표시 이름(`Local State`)은 DESK-02.
+**프로필 탐색**: `%LOCALAPPDATA%\Google\Chrome\User Data\` 아래 `Default`·`Profile 1`·`Profile 2`… 중 `Bookmarks` 파일이 있는 폴더만 후보로 모은다. 서버로 보내는 `profile`은 폴더 이름(`"Default"`)이다.
+
+**표시 이름과 자동 선택 (DESK-02)**: 같은 폴더의 `Local State`(JSON, 읽기 전용)에서 `profile.info_cache[폴더명].name`을 표시 이름으로, `profile.last_used`를 마지막으로 쓴 프로필로 읽는다. 이 파일이 없거나 깨져도 **오류로 보지 않는다**(표시 이름 없이 폴더명만 쓴다). 이메일(`user_name`)은 읽지 않는다. `info_cache`에 있어도 `Bookmarks` 파일이 없는 프로필은 목록에서 뺀다.
+
+고를 순서는 ①이 PC에 저장해 둔 선택 ②`Local State`의 `last_used` ③`Default` ④`Bookmarks` 수정 시각이 최근인 것. 넷 중 **파일이 실제로 있는 것**만 고르고, 저장해 둔 프로필이 사라졌으면 조용히 다음으로 내려간다. 서버의 `profiles.chrome_profile`은 동기화(DESK-03)가 `profile` 필드로 갱신한다.
+
+**파일 직접 선택**: 기본 경로에서 못 찾으면 메인 프로세스가 `dialog.showOpenDialog`로 파일을 고르게 한다. 고른 파일도 같은 읽기 규칙(50MB 상한·JSON·`roots` 검사)을 지나야 선택으로 저장한다. 크롬 파일이 아니면 `no_roots`로 거절한다.
+
+**렌더러에 노출하는 함수 (preload)**: `listChromeProfiles()`·`pickChromeBookmarksFile()`·`readChromeBookmarks()`·`getChromeSelection()`은 **인자를 받지 않고**, `selectChromeProfile(name)`은 탐색 목록에 있는 폴더명일 때만 받는다. 경로를 인자로 받는 읽기 함수는 만들지 않는다(렌더러가 임의의 파일을 읽게 되므로). 경로는 화면에 보여주기 위해 결과에 담아 내보내기만 하고, 렌더러가 돌려보내는 경로는 쓰지 않는다.
 
 **요청 변환**: 확장과 같은 결과를 만든다(docs/01-spec.md '확장 동작 규칙'의 '북마크 → 요청 변환'과 같은 규칙).
 - `roots.bookmark_bar`(id `1`)·`roots.other`(`2`)·`roots.synced`(`3`)은 folders에 넣지 않는다. 그 아래 폴더만 넣는다

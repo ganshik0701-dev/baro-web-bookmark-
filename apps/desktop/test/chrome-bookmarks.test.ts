@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { readBookmarksFile } from '../src/main/chrome-bookmarks'
-import { chromeUserDataDir, findChromeProfiles } from '../src/main/chrome-profiles'
+import { chromeUserDataDir, findChromeProfiles, parseLocalState } from '../src/main/chrome-profiles'
 
 const GOOD = JSON.stringify({
   roots: {
@@ -115,5 +115,54 @@ describe('findChromeProfiles', () => {
   it('chromeUserDataDir: LOCALAPPDATA가 없으면 null', () => {
     expect(chromeUserDataDir({})).toBeNull()
     expect(chromeUserDataDir({ LOCALAPPDATA: 'C:\\x' })).toBe(join('C:\\x', 'Google', 'Chrome', 'User Data'))
+  })
+
+  it('Local State가 있으면 표시 이름을 넣고 last_used를 맨 앞에 둔다 (DESK-02)', async () => {
+    await writeFile(
+      join(userData, 'Local State'),
+      JSON.stringify({
+        profile: {
+          last_used: 'Profile 1',
+          info_cache: { Default: { name: '홍길동', user_name: 'a@example.com' }, 'Profile 1': { name: '업무' } }
+        }
+      }),
+      'utf8'
+    )
+    const found = await findChromeProfiles(userData)
+    // last_used(Profile 1) → Default → 나머지 최근 수정순
+    expect(found.map((p) => p.name)).toEqual(['Profile 1', 'Default', 'Profile 2'])
+    expect(found.map((p) => p.displayName)).toEqual(['업무', '홍길동', null])
+  })
+})
+
+describe('parseLocalState (DESK-02, 무엇이 잘못돼도 던지지 않는다)', () => {
+  it('표시 이름과 last_used를 읽는다. 이메일은 읽지 않는다', () => {
+    const s = parseLocalState(
+      JSON.stringify({
+        profile: { last_used: 'Default', info_cache: { Default: { name: '홍길동', user_name: 'a@example.com' } } }
+      })
+    )
+    expect(s).toEqual({ displayNames: { Default: '홍길동' }, lastUsed: 'Default' })
+    expect(JSON.stringify(s)).not.toContain('example.com')
+  })
+
+  it.each([
+    ['{', 'JSON이 깨짐'],
+    ['{}', 'profile 없음'],
+    ['{"profile":null}', 'profile이 null'],
+    ['{"profile":{}}', 'info_cache 없음'],
+    ['{"profile":{"info_cache":[]}}', 'info_cache가 배열'],
+    ['{"profile":{"last_used":5}}', 'last_used가 숫자'],
+    ['[]', '배열'],
+    ['null', 'null']
+  ])('%s → 빈 값 (%s)', (text) => {
+    expect(parseLocalState(text)).toEqual({ displayNames: {}, lastUsed: null })
+  })
+
+  it('이름이 비었거나 문자열이 아닌 항목은 건너뛴다', () => {
+    const s = parseLocalState(
+      '{"profile":{"info_cache":{"A":{"name":""},"B":{"name":5},"C":{},"D":null,"E":{"name":"쓸모"}}}}'
+    )
+    expect(s.displayNames).toEqual({ E: '쓸모' })
   })
 })

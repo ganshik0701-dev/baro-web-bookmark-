@@ -3,11 +3,11 @@
 전체 계획의 현재 상태. 작업이 끝날 때마다 여기 체크박스를 채운다.
 상세 내용은 `docs/05-roadmap.md`, 작업 지시 문구는 `docs/06-prompts.md`.
 
-마지막 갱신: 2026-09-24 (DESK-01 파일 탐색·파싱과 단위 테스트)
+마지막 갱신: 2026-09-24 (DESK-02 프로필 선택, IPC·preload 노출)
 
 **다음 작업 (순서대로)**
-1. DESK-02: 프로필 목록, 파일 직접 선택
-2. IPC + preload 노출 (렌더러가 결과만 받게)
+1. DESK-03: 자동·수동 동기화 (409 확인 대화상자 포함)
+2. SCR-02 첫 동기화 화면
 
 ---
 
@@ -183,8 +183,19 @@
   - [x] 구현(메인 프로세스 전용, 읽기만): `chrome-parse.ts`(순수 함수, fs 없음), `chrome-bookmarks.ts`(읽기·1초 뒤 1회 재시도·50MB 상한), `chrome-profiles.ts`(Default 우선, 없으면 최근 수정순)
   - [x] `date_added`는 `BigInt(값)/1000n` 뒤에 `Number`로. 실제 값이 17자리라 `Number(값)/1e6`은 정밀도를 잃는다
   - [x] IPC·preload 노출은 하지 않았다(다음 항목). 렌더러에서 파일을 읽을 방법은 아직 없다
-- [ ] DESK-02: 프로필 목록, 파일 직접 선택
-- [ ] IPC + preload 노출
+- [x] DESK-02: 프로필 목록, 파일 직접 선택
+  - [x] 문서 먼저: 01-spec.md DESK-02를 **P1 → P0**로(프로필을 잘못 고르면 엉뚱한 북마크를 동기화한다), '표시 이름과 자동 선택'·'파일 직접 선택'·'렌더러에 노출하는 함수' 절 추가
+  - [x] 결정: 선택은 이 PC(`userData/chrome-selection.json`)에 저장하고 서버 `chrome_profile`은 동기화(DESK-03)가 갱신한다. `PATCH /me`는 만들지 않았다(7주차 SET-01 항목)
+  - [x] `Local State` 읽기(`parseLocalState`): 표시 이름·`last_used`만. 이메일(`user_name`)은 읽지 않는다. 파일이 없거나 깨져도 오류로 보지 않는다
+  - [x] 고를 순서 ①저장한 선택 ②`last_used` ③`Default` ④수정 시각 최근. 저장한 프로필이 사라지면 조용히 다음으로
+  - [x] 파일 직접 선택: `dialog.showOpenDialog`(메인에서만). 고른 파일도 같은 읽기 규칙을 지나야 저장된다
+  - 남음: 서버 `GET /me`의 `chromeProfile`로 복원하는 단계는 DESK-03으로 미뤘다(인증 API 호출 코드가 아직 없다)
+- [x] IPC + preload 노출
+  - [x] 노출 5개: `listChromeProfiles()`·`getChromeSelection()`·`pickChromeBookmarksFile()`·`readChromeBookmarks()`는 **인자 없음**, `selectChromeProfile(name)`은 탐색 목록에 있는 폴더명만
+  - [x] 경로를 인자로 받는 읽기 함수는 만들지 않았다(범용 파일 읽기가 되므로). 경로는 화면 표시용으로 내보내기만 한다
+  - [x] preload 번들 확인: `chrome:` 채널 5개와 함수 이름만 있고 메인 로직(`readdir`·`info_cache`·`LOCALAPPDATA`)은 들어가지 않았다(`import type`만 씀)
+  - [x] 실제 Electron 실행 확인: 프로필 2개와 표시 이름 읽음, Default 선택, 북마크 118개 읽기 성공, `selectChromeProfile('../../../Windows')` 거절
+  - 남음: 렌더러에서 실제로 불러 보는 확인은 화면이 없어 못 했다(SCR-02에서)
 - [ ] DESK-03: 자동·수동 동기화
   - [ ] `409 MASS_DELETE_CONFIRM_REQUIRED` → 삭제 개수 확인 대화상자 → `confirmDeleteCount` 붙여 재전송, 취소 시 다음 동기화에서 다시 묻기
   - [ ] 파싱 실패·의심스러운 결과면 `full`을 보내지 않기(DESK-01)

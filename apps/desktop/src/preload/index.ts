@@ -1,5 +1,8 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type { ApiFailure, ApiSuccess, AuthStatus, HealthResponse } from '@baro/shared'
+// 타입만 가져온다(번들에 메인 코드가 들어가지 않는다)
+import type { ChromeProfile } from '../main/chrome-profiles'
+import type { ChromeReadResult, ChromeSelection } from '../main/chrome-selection'
 
 // 렌더러에 노출하는 유일한 통로. 여기에 없는 기능은 렌더러에서 쓸 수 없다.
 // API는 범용 fetch를 노출하지 않고, 엔드포인트마다 인자가 정해진 함수만 둔다.
@@ -20,8 +23,19 @@ const api = {
     const listener = (_event: IpcRendererEvent, status: AuthStatus): void => fn(status)
     ipcRenderer.on('auth:changed', listener)
     return () => ipcRenderer.removeListener('auth:changed', listener)
-  }
-  // 5주차에 readChromeBookmarks(), listChromeProfiles() 가 여기에 추가된다
+  },
+
+  // DESK-01·02. 크롬 북마크 읽기라는 좁은 용도만 연다.
+  // 읽기 함수에는 인자가 없다. 경로를 받는 함수를 두면 렌더러가 아무 파일이나 읽을 수 있게 된다.
+  listChromeProfiles: (): Promise<ChromeProfile[]> => ipcRenderer.invoke('chrome:listProfiles'),
+  getChromeSelection: (): Promise<ChromeSelection | null> => ipcRenderer.invoke('chrome:getSelection'),
+  // 탐색 목록에 있는 폴더명만 통한다. 그 밖의 문자열은 메인이 거절하고 null을 준다
+  selectChromeProfile: (name: string): Promise<ChromeSelection | null> =>
+    ipcRenderer.invoke('chrome:selectProfile', name),
+  // 파일 선택 창은 메인이 연다. 취소하면 null
+  pickChromeBookmarksFile: (): Promise<ChromeReadResult | null> => ipcRenderer.invoke('chrome:pickFile'),
+  // 지금 선택된 프로필·파일을 읽는다
+  readChromeBookmarks: (): Promise<ChromeReadResult> => ipcRenderer.invoke('chrome:read')
 }
 
 contextBridge.exposeInMainWorld('baro', api)

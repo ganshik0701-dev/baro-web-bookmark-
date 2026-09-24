@@ -1,7 +1,15 @@
-import { app, BrowserWindow, shell, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, shell, ipcMain, type OpenDialogOptions } from 'electron'
 import { join } from 'node:path'
 import type { ApiFailure, ApiSuccess, HealthResponse } from '@baro/shared'
 import { cancelLogin, getAuthStatus, initAuth, login, logout, onAuthChange } from './auth'
+import { readBookmarksFile } from './chrome-bookmarks'
+import { findChromeProfiles } from './chrome-profiles'
+import {
+  getChromeSelection,
+  selectChromeFile,
+  selectChromeProfile,
+  type ChromeReadResult
+} from './chrome-selection'
 
 // API 서버 주소 (apps/desktop/.env의 VITE_API_BASE_URL, 공개값). 렌더러에게서 주소를 받지 않는다.
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1'
@@ -84,6 +92,43 @@ function registerIpc(): void {
   ipcMain.handle('auth:cancelLogin', () => cancelLogin())
   // AUTH-03. 로컬 로그아웃은 항상 된다. 서버 무효화 결과는 lastAttempt로 알린다
   ipcMain.handle('auth:logout', () => logout())
+
+  // DESK-01·02. 읽기 함수는 인자를 받지 않는다. 렌더러가 경로를 정할 방법이 없어야 하므로
+  // '지금 선택된 대상'만 읽는다. 경로를 인자로 받는 핸들러는 만들지 않는다(범용 파일 읽기가 된다).
+  ipcMain.handle('chrome:listProfiles', () => findChromeProfiles())
+  ipcMain.handle('chrome:getSelection', () => getChromeSelection())
+  // 목록에 있는 폴더명일 때만 통과한다(selectChromeProfile이 확인한다)
+  ipcMain.handle('chrome:selectProfile', (_event, name: unknown) => selectChromeProfile(name))
+  ipcMain.handle('chrome:pickFile', (event) => pickBookmarksFile(BrowserWindow.fromWebContents(event.sender)))
+  ipcMain.handle('chrome:read', () => readSelectedBookmarks())
+}
+
+/** 지금 선택된 프로필·파일을 읽는다. 선택이 없으면 그 사실을 알린다 */
+async function readSelectedBookmarks(): Promise<ChromeReadResult> {
+  const selection = await getChromeSelection()
+  if (!selection) return { ok: false, reason: 'no_selection', message: '읽을 크롬 프로필을 찾지 못했습니다' }
+  const result = await readBookmarksFile(selection.bookmarksPath)
+  return result.ok ? { ok: true, selection, tree: result.tree } : { ...result, selection }
+}
+
+/**
+ * DESK-02. 기본 경로에서 못 찾았을 때 사용자가 Bookmarks 파일을 직접 고른다.
+ * 고른 파일도 같은 읽기 규칙을 지나야 선택으로 저장한다(크롬 파일이 아니면 no_roots로 거절)
+ */
+async function pickBookmarksFile(parent: BrowserWindow | null): Promise<ChromeReadResult | null> {
+  const options: OpenDialogOptions = {
+    title: '크롬 Bookmarks 파일 선택',
+    // 크롬 Bookmarks 파일은 확장자가 없다
+    properties: ['openFile'],
+    filters: [{ name: '크롬 북마크', extensions: ['*'] }]
+  }
+  const picked = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options)
+  const path = picked.filePaths[0]
+  if (picked.canceled || !path) return null
+
+  const result = await readBookmarksFile(path)
+  if (!result.ok) return result
+  return { ok: true, selection: await selectChromeFile(path), tree: result.tree }
 }
 
 app.whenReady().then(() => {
