@@ -91,6 +91,7 @@ profiles 행이 없으면(가입 트리거가 실패한 경우 등) `401 INVALID
     "id": "b1c2...", "title": "GitHub", "url": "https://github.com",
     "iconUrl": null, "groupId": "g1...", "tags": ["개발"],
     "isPinned": true, "position": 1.0,
+    "source": "app_sync",
     "clickCount": 42, "recentVisits": 7,
     "lastVisitedAt": "2026-09-16T12:30:00Z",
     "createdAt": "2026-08-01T03:00:00Z"
@@ -98,6 +99,8 @@ profiles 행이 없으면(가입 트리거가 실패한 경우 등) `401 INVALID
   "meta": { "total": 1 }
 }
 ```
+
+`source`: `manual`(바로에서 직접 추가) / `app_sync`(앱이 크롬 파일에서) / `ext_sync`(확장이) / `html_import`. 앱은 이 값으로 동기화분 삭제를 막는다(docs/01-spec.md '열기와 보조 메뉴 규칙'). 단건·수정 응답도 같은 모양이다.
 
 ## POST /bookmarks
 
@@ -122,11 +125,17 @@ POST와 같은 필드(모두 선택, 최소 1개) + `isPinned`. `200 OK` + 수�
 
 GET은 `200 OK` + 북마크. DELETE는 `204 No Content`(방문 기록은 FK cascade로 함께 삭제). 삭제 5초 되돌리기(BM-05)는 앱이 5초 기다렸다가 DELETE를 보내는 방식이라 서버는 바로 지운다.
 
+**크롬에서 온 북마크(`app_sync`·`ext_sync`)도 서버는 지운다.** 앱이 이들의 삭제를 막는 것은 "다음 동기화에 되살아날 것을 지우지 말라"는 **사용 안내이지 보안 규칙이 아니다**(내 북마크를 내가 지우는 것이라 권한 문제가 없고, 되살아나므로 데이터가 망가지지도 않는다). 서버에서 막으면 테스트·정리 스크립트와, 크롬 쪽을 이미 지웠거나 프로필을 바꿔 실제로 지워야 하는 경우까지 막힌다. 그래서 서버는 출처와 관계없이 지운다.
+
 `:id`가 없거나, 남의 북마크이거나, uuid 형식이 아니면 모두 `404 BOOKMARK_NOT_FOUND`. 403을 쓰지 않는 이유: 남의 북마크가 **있다는 사실**도 알려 주지 않기 위해서다(RLS로도 안 보인다). PATCH도 같다.
 
 ## POST /bookmarks/:id/visit
 
-바디 없음. `record_visit` 호출 후 `204 No Content`.
+바디 없음. `record_visit`(docs/02-db.md)을 사용자 권한(`withUserDb`)으로 부른 뒤 `204 No Content`.
+
+- `:id`가 uuid 형식이 아니면 `404 BOOKMARK_NOT_FOUND`(다른 `/bookmarks/:id`와 같음)
+- uuid면 **항상 204**. 없는 id나 남의 북마크면 함수가 아무것도 바꾸지 않고 조용히 끝난다. 404로 나누지 않는 이유: 앱은 결과를 쓰지 않고(방문 기록 실패는 UX에 영향 없음), 404를 주려면 확인 쿼리가 하나 더 필요하다. 있는지 없는지를 알려 주지 않는다는 점은 404와 같다
+- 속도 제한은 `global` 버킷만 센다
 
 ## PATCH /bookmarks/reorder
 
