@@ -79,6 +79,9 @@ importers:
       '@fontsource/ibm-plex-sans-kr':
         specifier: ^5.3.0
         version: 5.3.0
+      '@tanstack/react-query':
+        specifier: ^5.103.2
+        version: 5.103.2(react@19.3.0)
       '@types/react':
         specifier: ^19.0.1
         version: 19.3.0
@@ -1005,6 +1008,14 @@ packages:
   '@szmarczak/http-timer@4.0.6':
     resolution: {integrity: sha512-4BAffykYOgO+5nzBWYwE3W90sBgLJoUPRWWcL8wlyiM8IB8ipJz3UMJ9KXQd1RKQXpKp8Tutn80HZtWsu2u76w==}
     engines: {node: '>=10'}
+
+  '@tanstack/query-core@5.103.2':
+    resolution: {integrity: sha512-I8DkFXls5jXLqtm8+QpOhEmG07hIblhSZFzafg9wHsMSEvMzULy9hK17wU1T/ahfhMbtITJhbxutwwCoihkR7A==}
+
+  '@tanstack/react-query@5.103.2':
+    resolution: {integrity: sha512-B+fWiYZBc+0uUD5zDZAeLw9dKj7XEsdnuu6zRZ+no6LNKpeE3P3bJ+N6HINjcIlWR6fW3vUoTneEaGa2V6ehqw==}
+    peerDependencies:
+      react: ^18 || ^19
 
   '@tootallnate/once@2.0.1':
     resolution: {integrity: sha512-HqmEUIGRJ5fSXchkVgR5F7qn48bDBzv0kWj/Kfu5e6uci4UlEeng4331LnBkWffb++Ei3FOVLxo8JJWMFBDMeQ==}
@@ -3509,6 +3520,13 @@ snapshots:
   '@szmarczak/http-timer@4.0.6':
     dependencies:
       defer-to-connect: 2.0.1
+
+  '@tanstack/query-core@5.103.2': {}
+
+  '@tanstack/react-query@5.103.2(react@19.3.0)':
+    dependencies:
+      '@tanstack/query-core': 5.103.2
+      react: 19.3.0
 
   '@tootallnate/once@2.0.1': {}
 

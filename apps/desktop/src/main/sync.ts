@@ -22,6 +22,11 @@ export type SyncState = {
    * null이면 아직 확인 전. 서버 GET /me의 lastSyncedAt으로 정한다
    */
   firstSync: boolean | null
+  /**
+   * 서버가 마지막으로 동기화한 시각(ISO). 상태바 표시용(SCR-03).
+   * 앱 시작 때 GET /me의 lastSyncedAt, 이후엔 성공한 동기화의 syncedAt. runSync는 이 값을 모른다
+   */
+  lastSyncedAt: string | null
 }
 
 export const initialSyncState: SyncState = {
@@ -30,7 +35,8 @@ export const initialSyncState: SyncState = {
   confirm: null,
   error: null,
   profile: null,
-  firstSync: null
+  firstSync: null,
+  lastSyncedAt: null
 }
 
 /** 토큰·fetch·주소(ApiDeps)에 파일 읽기와 확인 함수를 더한 것 */

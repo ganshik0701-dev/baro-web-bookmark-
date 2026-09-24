@@ -1,14 +1,15 @@
 // 로그인 상태(메인 프로세스가 알려 줌)를 보고 화면을 고른다.
-//   확인 중 → Loading / 세션 있음 → 임시 홈 / 그 밖 → SCR-01 로그인
-// 6주차에 임시 홈이 메인 그리드(SCR-03)로 바뀐다.
+//   확인 중 → Loading / 세션 있음 → (첫 동기화 전이면 SCR-02) SCR-03 메인 그리드 / 그 밖 → SCR-01 로그인
 import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { AuthStatus } from '@baro/shared'
 import type { SyncState } from './types'
 import MassDeleteModal from './components/MassDeleteModal'
+import { BOOKMARKS_KEY } from './lib/queries'
+import HomeScreen from './screens/HomeScreen'
 import Loading from './screens/Loading'
 import LoginScreen from './screens/LoginScreen'
 import SyncScreen from './screens/SyncScreen'
-import TempHome from './screens/TempHome'
 
 export default function App() {
   // 로그인 상태와 버튼을 눌러 기다리는 중인지를 따로 둔다.
@@ -36,6 +37,20 @@ export default function App() {
     window.baro.getSyncState().then(setSync, () => undefined)
     return unsubscribe
   }, [])
+
+  const queryClient = useQueryClient()
+
+  // 동기화가 성공할 때마다(자동·수동) 목록을 다시 불러온다. syncedAt이 매번 달라서 그때마다 한 번
+  const syncedAt = sync?.phase === 'done' ? sync.lastResult?.syncedAt : undefined
+  useEffect(() => {
+    if (syncedAt) void queryClient.invalidateQueries({ queryKey: BOOKMARKS_KEY })
+  }, [syncedAt, queryClient])
+
+  // 로그아웃하면 목록 캐시를 모두 비운다. 다음에 로그인한 계정에 이전 목록이 잠깐도 보이지 않게
+  const signedIn = Boolean(auth?.session)
+  useEffect(() => {
+    if (!signedIn) queryClient.clear()
+  }, [signedIn, queryClient])
 
   // 서버가 '아직 한 번도 동기화하지 않았다'고 하면 첫 동기화 화면을 연다
   useEffect(() => {
@@ -80,9 +95,10 @@ export default function App() {
     }
 
     return (
-      <TempHome
+      <HomeScreen
         session={auth.session}
         lastAttempt={auth.lastAttempt}
+        sync={sync}
         waitingLogout={waitingLogout}
         onLogout={startLogout}
       />

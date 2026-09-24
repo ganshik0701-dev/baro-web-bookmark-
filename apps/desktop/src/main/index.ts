@@ -185,7 +185,7 @@ async function startupSync(): Promise<void> {
   // 서버에 못 물어본 경우(오프라인 등)는 홈으로 보낸다. 첫 사용자는 어차피 지금 동기화할 수 없고,
   // 이미 쓰던 사용자에게 첫 동기화 화면이 잘못 뜨는 편이 더 나쁘다
   const firstSync = me ? me.lastSyncedAt === null : false
-  setSyncState({ ...syncState, firstSync })
+  setSyncState({ ...syncState, firstSync, lastSyncedAt: me?.lastSyncedAt ?? syncState.lastSyncedAt })
   if (!firstSync) await syncNow('startup')
 }
 
@@ -208,8 +208,13 @@ function syncNow(trigger: SyncTrigger): Promise<SyncState> {
       pendingSync = null
     })
     .then((next) => {
-      // runSync는 firstSync를 모른다. 성공했으면 더는 첫 동기화가 아니고, 아니면 그대로 둔다
-      setSyncState({ ...next, firstSync: next.phase === 'done' ? false : syncState.firstSync })
+      // runSync는 firstSync·lastSyncedAt을 모른다. 성공했으면 더는 첫 동기화가 아니고 시각이 바뀐다.
+      // 실패·취소면 둘 다 그대로 둔다(상태바는 마지막으로 성공한 시각을 계속 보여준다)
+      setSyncState({
+        ...next,
+        firstSync: next.phase === 'done' ? false : syncState.firstSync,
+        lastSyncedAt: next.lastResult?.syncedAt ?? syncState.lastSyncedAt
+      })
       return syncState
     })
   setSyncState({ ...syncState, phase: 'syncing', error: null })

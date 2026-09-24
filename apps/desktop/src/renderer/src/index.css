@@ -32,33 +32,6 @@ h1[tabindex='-1']:focus {
 
 /* ---------- 공용 ---------- */
 
-.card {
-  margin-top: 16px;
-  padding: var(--card-pad);
-  background: var(--surface);
-  border: var(--card-border-width) solid var(--border);
-  border-radius: var(--card-radius);
-}
-
-.section-title {
-  margin: 0;
-  font-size: var(--text-section);
-  font-weight: 600;
-}
-
-.caption {
-  margin: 4px 0 16px;
-  font-size: var(--text-caption);
-  color: var(--text-subtle);
-}
-
-.card-status {
-  min-height: 1.7em;
-  margin: 12px 0 0;
-  font-size: var(--text-caption);
-  color: var(--text-muted);
-}
-
 /* 버튼 세 종류. 높이·모서리·글자는 같은 토큰을 쓰고 색만 다르다(보조는 높이·여백도 따로) */
 .button-primary,
 .button-danger {
@@ -113,14 +86,6 @@ button:disabled {
 button:focus-visible {
   outline: var(--focus-ring-width) solid var(--text);
   outline-offset: 2px;
-}
-
-.success {
-  color: var(--success);
-}
-
-.danger {
-  color: var(--danger);
 }
 
 /* ---------- 로딩 ---------- */
@@ -311,32 +276,6 @@ button:focus-visible {
   .login-preview {
     display: none;
   }
-}
-
-/* ---------- 로그인 후 임시 화면 ---------- */
-
-.home {
-  max-width: 640px;
-  padding: 48px var(--page-x);
-}
-
-.home-logo {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-size: var(--text-title);
-  font-weight: 700;
-  color: var(--accent);
-}
-
-.home-email {
-  margin: 8px 0 0;
-  font-weight: 500;
-}
-
-.home-note {
-  margin: 16px 0 0;
-  font-size: var(--text-caption);
-  color: var(--text-subtle);
 }
 
 /* ---------- SCR-02 첫 동기화 (시안 project/Sync.dc.html) ---------- */
@@ -673,4 +612,226 @@ button:focus-visible {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+/* ---------- SCR-03 메인 그리드 (시안 project/Main.dc.html) ---------- */
+
+/* 화면에는 안 보이고 스크린리더만 읽는 글(화면 제목 등) */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.home {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 시안의 탭 줄이 아직 없어서, 탭 줄 아래 구분선을 상단바 아래에 둔다 */
+.topbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px var(--page-x) 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* 보조 버튼이지만 상단바에서는 기본 버튼 높이(시안 44px) */
+.toolbar-button {
+  height: var(--btn-height);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.toolbar-button svg {
+  color: var(--text-subtle);
+}
+
+.account {
+  position: relative;
+}
+
+.account-button {
+  width: 44px;
+  height: 44px;
+  border: var(--btn-border-width) solid var(--border);
+  border-radius: 50%;
+  background: var(--chrome);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.account-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 10;
+  width: 260px;
+  padding: var(--card-pad);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface);
+  border: var(--card-border-width) solid var(--border);
+  border-radius: var(--card-radius);
+}
+
+.account-email {
+  margin: 0;
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.account-note {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--text-subtle);
+}
+
+.account-panel .button-secondary {
+  align-self: flex-start;
+}
+
+.home-main {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: var(--page-top) var(--page-x);
+}
+
+/* 불러오는 중·실패·0개 */
+.home-state {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  color: var(--text-muted);
+}
+
+.home-state p {
+  margin: 0;
+}
+
+.grid-section + .grid-section {
+  margin-top: var(--section-gap);
+}
+
+.grid-section-title {
+  margin: 0 0 var(--section-title-gap);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-small);
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--text-muted);
+}
+
+.grid-section-title svg {
+  color: var(--accent);
+}
+
+/* --grid-cols·--tile-size는 BookmarkGrid가 창 너비에 맞춰 넣는다(값은 tokens.css의 그리드 토큰) */
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--grid-cols), minmax(0, 1fr));
+  gap: var(--grid-gap-row) var(--grid-gap-col);
+}
+
+.tile {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--tile-label-gap);
+  padding: 10px 4px;
+  border: 0;
+  border-radius: var(--card-radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* 글자 타일과 파비콘 타일은 크기·모서리가 같다(바뀌어도 줄이 흔들리지 않게) */
+.tile-icon {
+  position: relative;
+  width: var(--tile-size);
+  height: var(--tile-size);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--tile-radius);
+  color: var(--tile-text);
+  font-size: calc(var(--tile-size) * var(--tile-letter-ratio));
+  font-weight: 600;
+  line-height: 1;
+}
+
+.tile-icon.is-favicon {
+  background: var(--surface);
+  border: var(--card-border-width) solid var(--border);
+}
+
+/* 불러오는 동안은 투명하게 둔다(깨진 이미지가 보이지 않게). 쓸 수 있으면 is-favicon이 붙어 보인다 */
+.tile-favicon {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: calc(var(--tile-size) * var(--tile-favicon-ratio));
+  height: calc(var(--tile-size) * var(--tile-favicon-ratio));
+  opacity: 0;
+}
+
+.tile-icon.is-favicon .tile-favicon {
+  opacity: 1;
+}
+
+.tile-label {
+  max-width: min(100%, var(--tile-label-max));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-tile-label);
+  line-height: 1.5;
+}
+
+.statusbar {
+  height: var(--statusbar-height);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 var(--page-x);
+  background: var(--chrome);
+  border-top: 1px solid var(--border);
+  font-size: var(--text-small);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.statusbar-info,
+.statusbar-message {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.statusbar-message.is-error {
+  color: var(--danger);
 }
