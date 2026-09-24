@@ -357,7 +357,7 @@ SCR-02와 DESK-03을 구현해줘. 시안 참고.
 ```
 SCR-03을 docs/04-design.md 토큰으로 만들어줘. 시안 참고.
 
-- BookmarkGrid: 창 너비에 따라 6/8/10열, 아이콘 62px, 라벨 한 줄 말줄임
+- BookmarkGrid: 창 너비에 따라 6/8/10열, 아이콘 56/64/72px(docs/04-design.md 그리드), 라벨 한 줄 말줄임
 - BookmarkIcon: 파비콘 로드 실패 시 제목 첫 글자 + 도메인 해시 색 타일
 - 고정된 북마크를 위 섹션에, 나머지를 아래에
 - 클릭: window.baro.openExternal(url)을 먼저 호출하고,
@@ -366,7 +366,7 @@ SCR-03을 docs/04-design.md 토큰으로 만들어줘. 시안 참고.
 - TanStack Query로 목록을 캐시하고, 삭제·고정은 낙관적 업데이트
 
 조건:
-- Tailwind를 이번에 도입한다면 index.css의 CSS 변수를 테마 토큰으로 옮겨줘.
+- 디자인 값은 styles/tokens.css에만 둔다(CLAUDE.md 코드 규칙).
 - 버튼은 실제 <button>을 쓰고 아이콘 전용 버튼엔 aria-label을 넣는다.
 - 끝나면 PROGRESS.md에서 이번 작업에 해당하는 체크박스를 [x]로 바꾸고,
   맨 위 '마지막 갱신' 날짜를 오늘로 고친다. 끝내지 못한 항목은 그대로 두고 이유를 알려줘.

@@ -52,7 +52,7 @@ supabase/migrations  SQL, RLS, 트리거
 
 ## 기술 스택
 
-TypeScript / Electron 33 + electron-vite / React 19 + Vite / Tailwind CSS + shadcn/ui / TanStack Query / Zustand / Zod / Next.js 15 / Supabase(PostgreSQL) / Drizzle ORM / electron-builder(NSIS) / Vitest + Playwright
+TypeScript / Electron 33 + electron-vite / React 19 + Vite / CSS 변수(디자인 토큰) / TanStack Query / Zustand / Zod / Next.js 15 / Supabase(PostgreSQL) / Drizzle ORM / electron-builder(NSIS) / Vitest + Playwright
 
 ## 코드 규칙
 
@@ -61,6 +61,7 @@ TypeScript / Electron 33 + electron-vite / React 19 + Vite / Tailwind CSS + shad
 - 모든 API 요청 바디는 `packages/shared`의 Zod 스키마로 검증한다. 스키마를 프론트 폼 검증에도 재사용한다
 - 에러는 `{ error: { code, message } }` 형태로 통일한다. 코드 목록은 `docs/03-api.md`
 - 주석과 커밋 메시지는 한국어로 쓴다. 커밋: `feat(BM-01): 북마크 추가 API` 처럼 기능 ID를 넣는다
+- 여러 화면이 함께 쓰는 디자인 값(색·크기·간격·글자)은 `apps/desktop/src/renderer/src/styles/tokens.css`에만 둔다. 다른 CSS·TSX에는 `var(--…)`만 쓴다. 한 화면에서만 쓰는 크기는 `index.css`의 그 화면 절에 두고 docs/04-design.md '화면 전용 값'에 적는다. 토큰을 더하거나 바꾸면 docs/04-design.md '어디를 고치면 무엇이 바뀌는가' 표도 고친다
 
 ## Electron 보안 (반드시 지킬 것)
 
