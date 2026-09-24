@@ -3,6 +3,7 @@
 // 이 파일은 electron을 import하지 않는다. 파일 읽기·토큰·fetch·확인 대화상자를 전부 인자로 받아서
 // 단위 테스트에서 진짜 서버 없이 흐름을 확인할 수 있다(요청이 '나가지 않는' 경우까지).
 import type { MassDeleteDetails, SyncChromeInput, SyncChromeResult } from '@baro/shared'
+import { authedFetch, type ApiDeps } from './api-client'
 import type { ChromeReadResult } from './chrome-selection'
 
 export type SyncPhase = 'idle' | 'syncing' | 'needs_confirm' | 'done' | 'error'
@@ -32,15 +33,10 @@ export const initialSyncState: SyncState = {
   firstSync: null
 }
 
-export type SyncDeps = {
+/** 토큰·fetch·주소(ApiDeps)에 파일 읽기와 확인 함수를 더한 것 */
+export type SyncDeps = ApiDeps & {
   /** 지금 선택된 프로필·파일을 읽는다 */
   readBookmarks: () => Promise<ChromeReadResult>
-  /** 유효한 액세스 토큰. 만료가 가까우면 이 함수가 먼저 갱신한다 */
-  getAccessToken: () => Promise<string | null>
-  /** 401을 받은 뒤 한 번 더 갱신해 본다 */
-  forceRefresh: () => Promise<boolean>
-  fetch: typeof globalThis.fetch
-  apiBaseUrl: string
   /** 대량 삭제 확인. 사용자가 확인하면 true */
   confirmMassDelete: (details: MassDeleteDetails) => Promise<boolean>
   /** 북마크가 0개일 때 확인(수동 동기화에서만 불린다) */
@@ -137,31 +133,13 @@ type SendResult =
   | { kind: 'error'; code: string; message: string }
 
 /**
- * POST /sync/chrome 한 번. 401이면 갱신 후 1회만 다시 보낸다.
+ * POST /sync/chrome 한 번. 401이면 갱신 후 1회만 다시 보낸다(authedFetch).
  * 그 밖의 오류는 재시도하지 않는다(본문이 최대 2MB라 함부로 다시 보내지 않는다)
  */
-async function send(deps: SyncDeps, body: SyncChromeInput, isRetry = false): Promise<SendResult> {
-  const token = await deps.getAccessToken()
-  if (!token) return { kind: 'error', code: 'UNAUTHORIZED', message: '로그인이 필요합니다' }
-
-  let res: Response
-  try {
-    res = await deps.fetch(`${deps.apiBaseUrl}/sync/chrome`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(60_000)
-    })
-  } catch {
-    return { kind: 'error', code: 'NETWORK', message: '서버에 연결하지 못했습니다' }
-  }
-
-  if (res.status === 401) {
-    // 시계 오차나 서버가 토큰을 일찍 버린 경우. 한 번만 갱신해 다시 보낸다.
-    // 재시도도 401이면 갱신으로 풀리지 않는 것이므로 같은 안내로 끝낸다(무한 재시도 없음)
-    if (!isRetry && (await deps.forceRefresh())) return send(deps, body, true)
-    return { kind: 'error', code: 'UNAUTHORIZED', message: '로그인이 만료됐습니다. 다시 로그인하세요' }
-  }
+async function send(deps: SyncDeps, body: SyncChromeInput): Promise<SendResult> {
+  const r = await authedFetch(deps, '/sync/chrome', { method: 'POST', body: JSON.stringify(body), timeoutMs: 60_000 })
+  if (r.kind === 'error') return r
+  const { res } = r
 
   const parsed = (await res.json().catch(() => null)) as { data?: SyncChromeResult } | ApiError | null
 

@@ -1,11 +1,9 @@
 import { app, BrowserWindow, dialog, shell, ipcMain, type OpenDialogOptions } from 'electron'
 import { join } from 'node:path'
 import type { ApiFailure, ApiSuccess, HealthResponse, MassDeleteDetails } from '@baro/shared'
-import { API_BASE, fetchMe } from './api'
+import { API_BASE, apiDeps, fetchMe, listBookmarks } from './api'
 import {
   cancelLogin,
-  forceRefresh,
-  getAccessToken,
   getAuthStatus,
   initAuth,
   login,
@@ -115,6 +113,10 @@ function registerIpc(): void {
 
   // DESK-03. 렌더러는 '지금 동기화'만 알린다. confirmDeleteCount 같은 숫자는 메인이 정한다
   ipcMain.handle('sync:now', () => syncNow('manual'))
+
+  // SCR-03. 인자를 받지 않는다(정렬·필터는 SEARCH-04에서 정해진 값만 받게 한다).
+  // 토큰은 메인에서 붙이고, 렌더러는 { data, meta } 또는 { error }만 받는다
+  ipcMain.handle('bookmarks:list', () => listBookmarks())
   ipcMain.handle('sync:state', () => syncState)
   // SCR-02 모달의 답. true/false만 받는다(삭제 개수는 메인이 들고 있다)
   ipcMain.handle('sync:confirm', (_event, ok: unknown) => settleConfirm(ok === true))
@@ -190,11 +192,8 @@ async function startupSync(): Promise<void> {
 function syncNow(trigger: SyncTrigger): Promise<SyncState> {
   pendingSync ??= runSync(
     {
+      ...apiDeps,
       readBookmarks: readSelectedBookmarks,
-      getAccessToken,
-      forceRefresh,
-      fetch: globalThis.fetch,
-      apiBaseUrl: API_BASE,
       confirmMassDelete,
       confirmSuspicious
     },

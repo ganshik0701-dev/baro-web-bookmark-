@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type { ApiFailure, ApiSuccess, AuthStatus, HealthResponse } from '@baro/shared'
 // 타입만 가져온다(번들에 메인 코드가 들어가지 않는다)
 import type { ChromeProfile } from '../main/chrome-profiles'
+import type { BookmarkListResult } from '../main/api-client'
 import type { ChromeReadResult, ChromeSelection } from '../main/chrome-selection'
 import type { SyncState } from '../main/sync'
 
@@ -37,6 +38,9 @@ const api = {
   pickChromeBookmarksFile: (): Promise<ChromeReadResult | null> => ipcRenderer.invoke('chrome:pickFile'),
   // 지금 선택된 프로필·파일을 읽는다
   readChromeBookmarks: (): Promise<ChromeReadResult> => ipcRenderer.invoke('chrome:read'),
+
+  // SCR-03. GET /bookmarks. 인자 없음. 실패하면 { error }가 온다(예외를 던지지 않는다)
+  listBookmarks: (): Promise<BookmarkListResult> => ipcRenderer.invoke('bookmarks:list'),
 
   // DESK-03. 렌더러는 '지금 동기화'만 알린다. 삭제 확인 개수(confirmDeleteCount)는 메인이 정한다
   syncNow: (): Promise<SyncState> => ipcRenderer.invoke('sync:now'),

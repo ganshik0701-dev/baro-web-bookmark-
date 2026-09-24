@@ -1,8 +1,22 @@
 // 메인 프로세스에서만 하는 인증 API 호출 (CLAUDE.md: 앱의 API 호출은 메인 프로세스에서만).
 // 토큰은 여기서 붙이고 렌더러로 돌려보내지 않는다. path에는 코드에 고정된 값만 넘긴다.
-import { getAccessToken } from './auth'
+import { fetchBookmarks, type ApiDeps, type BookmarkListResult } from './api-client'
+import { forceRefresh, getAccessToken } from './auth'
 
 export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1'
+
+/** 진짜 토큰·fetch·주소. 동기화(sync.ts)와 목록 조회가 같은 것을 쓴다 */
+export const apiDeps: ApiDeps = {
+  getAccessToken,
+  forceRefresh,
+  fetch: (...args) => fetch(...args),
+  apiBaseUrl: API_BASE
+}
+
+/** GET /bookmarks (SCR-03). IPC bookmarks:list가 부른다 */
+export function listBookmarks(): Promise<BookmarkListResult> {
+  return fetchBookmarks(apiDeps)
+}
 
 /**
  * GET /me의 필요한 부분만. 실패하면 null(프로필 복원은 없으면 없는 대로 넘어간다).
