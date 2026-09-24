@@ -12,4 +12,4 @@ export const GET = withAuth(async (req) => {
   const parsed = httpUrl.safeParse(req.nextUrl.searchParams.get('url') ?? undefined)
   if (!parsed.success) throw new ApiError('INVALID_URL', parsed.error.issues[0]?.message ?? '올바른 주소가 아닙니다')
   return ok(await fetchMetadata(parsed.data))
-})
+}, { rateBucket: 'metadata' })

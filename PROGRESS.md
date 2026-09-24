@@ -3,11 +3,12 @@
 전체 계획의 현재 상태. 작업이 끝날 때마다 여기 체크박스를 채운다.
 상세 내용은 `docs/05-roadmap.md`, 작업 지시 문구는 `docs/06-prompts.md`.
 
-마지막 갱신: 2026-09-24 (5주차 완료 — 파일 동기화. 다음은 6주차 그리드)
+마지막 갱신: 2026-09-24 (속도 제한 구현·로컬 확인. 운영 확인은 남음)
 
 **다음 작업 (순서대로)**
-1. **6주차 SCR-03 메인 그리드** (지금 홈은 여전히 임시 화면이다)
-2. 미뤄 둔 것: 4주차 속도 제한(공통), 7주차 SCR-05의 앱+확장 한계 안내
+1. 속도 제한 **운영(Vercel) 확인** (코드·DB는 끝났고 배포 확인만 남음)
+2. **6주차 SCR-03 메인 그리드** (지금 홈은 여전히 임시 화면이다)
+3. 미뤄 둔 것: 7주차 SCR-05의 앱+확장 한계 안내
 
 ---
 
@@ -120,7 +121,22 @@
   - 외부 사이트 테스트(httpbin·localtest.me·nip.io 등 11개)는 `METADATA_LIVE=1`일 때만 돈다(CI·기본 실행은 건너뜀)
   - [x] 운영(Vercel, `baro-web-bookmark-api.vercel.app`, 응답 헤더 icn1)에서 로컬과 같은 14개 결과 + 토큰 없음 401. Linux라 `169.254.169.254.nip.io`·`10.0.0.1.nip.io`도 400 확인(접속 시점 검사)
   - 확인용 세션은 로그아웃(204)으로 폐기
-- [ ] 속도 제한(공통): 사용자당 분당 120회, `/metadata` 20회, `/sync/chrome` 10회 (서버리스라 DB·KV 저장소 필요, 따로 설계)
+- [x] 속도 제한(공통): 사용자당 분당 120회, `/metadata` 20회, `/sync/chrome` 10회
+  - [x] 결정: **Supabase 테이블**에 센다(새 서비스 가입 없음). Upstash·Vercel KV는 지연이 더 낮지만 사용자가 본인 한 명인 학습 프로젝트에 의존성을 늘릴 이유가 약하다
+  - [x] 결정: 앱 토큰·확장 토큰은 **같은 사용자면 한 카운터를 나눠 쓴다**(03-api.md의 '사용자당' 그대로)
+  - [x] 문서 먼저: 03-api.md '속도 제한' 절, 02-db.md '속도 제한 (007)', CLAUDE.md(예외가 둘로 — 각각 전용 역할로 `private` 함수 하나)
+  - [x] `007_rate_limits.sql`: `rate_limits` 표(PK `(user_id,bucket,window_start)`), 전용 역할 `baro_rate_limiter`, `private.hit_rate_limit(uuid, text[])`
+    - [x] 실제 DB `BEGIN…ROLLBACK` 리허설 → 이력(`schema_migrations`)에 007 기록하며 적용
+    - 리허설에서 잡은 것: `returns table (bucket, count)`로 두면 PL/pgSQL이 그 이름을 변수로 잡아 컬럼 참조와 충돌한다(42702) → `hit_bucket`·`hit_count`로
+    - 권한 분리 확인: 전용 역할은 `rate_limits` 직접 읽기도, 다른 `private` 함수(`resolve_api_token`) 호출도 거절. `authenticated`는 `hit_rate_limit`을 못 부르고 표도 0행(RLS 켜고 정책 없음)
+  - [x] 구현: `lib/rate-limit.ts` + `withAuth(…, { rateBucket })`. 인증 통과 뒤·**라우트 트랜잭션 밖**에서 센다(요청이 실패해 롤백돼도 카운트가 남게)
+    - 고정 윈도(분 단위). 한 요청이 `global`+해당 버킷을 **왕복 1회**로 함께 올린다
+    - 세지 못하면 막지 않는다(fail-open). 속도 제한 고장으로 서비스 전체가 멈추는 편이 더 나쁘다
+    - drizzle이 JS 배열을 파라미터로 펼쳐 `($2,$3)::text[]`가 되는 문제 → `sql.param(buckets)`로 감쌈
+  - [x] 테스트 7개: 한도 초과·엔드포인트 버킷 우선·두 행 생성·사용자당 합산·fail-open·전용 역할이 다른 표 접근 거절
+  - [x] 실제 토큰 HTTP 확인(로컬 개발 서버, 테스트 계정): `/metadata` **20회 통과 → 21회째부터 429**, `retry-after` 헤더와 `details.bucket` 정상, 다음 분에 풀림, `/me`는 metadata 한도와 무관, `global`을 120으로 채우면 `/me`·`/bookmarks`·`/tokens` 모두 429
+  - [x] 확인 뒤 정리: `rate_limits` 0행, 확인용 세션 로그아웃(204)
+  - 남음: **운영(Vercel) 확인**과 실제 지연 측정. 오래된 행 정리는 함수가 약 1% 확률로 지우고, 본격적인 정리는 v1.1 '오래된 로그 정리 작업'
 - [x] `/tokens` 3종, 토큰 해시 저장, 인증 미들웨어 (EXT-01)
   - [x] 설계 승인: 조회 전용 역할 `baro_token_resolver` + `private` 스키마, 확장 토큰은 지금 `GET /me`만, `last_used_at` 5분 단위
   - [x] 문서 먼저: 03-api.md(`/tokens` 상세, `TOKEN_NOT_FOUND`, 확장 토큰은 표시한 엔드포인트만), 02-db.md(역할·함수·트리거), CLAUDE.md(`withUserDb` 예외 하나)

@@ -37,8 +37,8 @@ export class ApiError extends Error {
   }
 }
 
-export function fail(code: ErrorCode, message: string, details?: unknown) {
-  return NextResponse.json({ error: { code, message, details } }, { status: ERROR_CODES[code] })
+export function fail(code: ErrorCode, message: string, details?: unknown, headers?: HeadersInit) {
+  return NextResponse.json({ error: { code, message, details } }, { status: ERROR_CODES[code], headers })
 }
 
 export function ok<T>(data: T, init?: ResponseInit) {

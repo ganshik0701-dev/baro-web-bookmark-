@@ -7,6 +7,7 @@ import type { NextRequest } from 'next/server'
 import { createRemoteJWKSet, errors, jwtVerify, type JWTPayload } from 'jose'
 import { resolveApiToken } from './api-tokens'
 import { ApiError, fail } from './errors'
+import { checkRateLimit, type RateBucket } from './rate-limit'
 
 export type AuthContext = {
   userId: string
@@ -77,6 +78,8 @@ type RouteContext<P> = { params: Promise<P> }
 type AuthOptions = {
   /** 확장 토큰(baro_)도 받는다. 기본은 앱 토큰만 (docs/03-api.md '공통 규칙') */
   allowApiToken?: boolean
+  /** 이 엔드포인트만의 속도 제한 버킷. 없으면 global만 센다 (docs/03-api.md '속도 제한') */
+  rateBucket?: RateBucket
 }
 type AuthedHandler<P> = (req: NextRequest, ctx: { auth: AuthContext; params: Promise<P> }) => Promise<Response>
 
@@ -108,6 +111,18 @@ export function withAuth<P = Record<string, never>>(handler: AuthedHandler<P>, o
       if (err instanceof InvalidToken) return fail('INVALID_TOKEN', '토큰이 유효하지 않거나 만료되었습니다')
       console.error('[auth] 토큰 검증 중 서버 오류:', err instanceof Error ? err.message : String(err))
       return fail('INTERNAL_ERROR', '인증을 확인하지 못했습니다')
+    }
+
+    // 인증을 통과한 뒤에 센다. 누구인지 모르면 셀 수가 없어서 401은 세지 않는다.
+    // 라우트 트랜잭션 밖이라 요청이 실패해도 카운트는 남는다
+    const limit = await checkRateLimit(auth.userId, options.rateBucket)
+    if (!limit.ok) {
+      return fail(
+        'RATE_LIMITED',
+        `요청이 너무 잦습니다. ${limit.retryAfter}초 뒤에 다시 시도하세요`,
+        { bucket: limit.bucket, retryAfter: limit.retryAfter },
+        { 'retry-after': String(limit.retryAfter) }
+      )
     }
 
     try {

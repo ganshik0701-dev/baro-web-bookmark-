@@ -19,5 +19,5 @@ export const POST = withAuth(
     }
     return ok(await syncChrome(auth, input))
   },
-  { allowApiToken: true }
+  { allowApiToken: true, rateBucket: 'sync' }
 )
