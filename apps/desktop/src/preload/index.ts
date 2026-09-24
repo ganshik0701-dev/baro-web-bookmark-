@@ -41,6 +41,8 @@ const api = {
   // DESK-03. 렌더러는 '지금 동기화'만 알린다. 삭제 확인 개수(confirmDeleteCount)는 메인이 정한다
   syncNow: (): Promise<SyncState> => ipcRenderer.invoke('sync:now'),
   getSyncState: (): Promise<SyncState> => ipcRenderer.invoke('sync:state'),
+  // SCR-02 대량 삭제 모달의 답. 개수는 보내지 않는다(메인이 409에서 받은 값을 쓴다)
+  answerMassDelete: (ok: boolean): Promise<void> => ipcRenderer.invoke('sync:confirm', ok),
   // 자동 동기화도 메인에서 일어나므로 상태가 바뀌면 알려 준다
   onSyncChanged: (fn: (state: SyncState) => void): (() => void) => {
     const listener = (_event: IpcRendererEvent, state: SyncState): void => fn(state)

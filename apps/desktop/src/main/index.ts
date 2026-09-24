@@ -116,6 +116,8 @@ function registerIpc(): void {
   // DESK-03. 렌더러는 '지금 동기화'만 알린다. confirmDeleteCount 같은 숫자는 메인이 정한다
   ipcMain.handle('sync:now', () => syncNow('manual'))
   ipcMain.handle('sync:state', () => syncState)
+  // SCR-02 모달의 답. true/false만 받는다(삭제 개수는 메인이 들고 있다)
+  ipcMain.handle('sync:confirm', (_event, ok: unknown) => settleConfirm(ok === true))
 }
 
 // ─── DESK-03 동기화 ────────────────────────────────────────────
@@ -130,20 +132,31 @@ function setSyncState(next: SyncState): void {
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send('sync:changed', syncState)
 }
 
-/** 대량 삭제 확인 (DESK-03). 지워질 북마크 최대 5개를 보여준다. SCR-02에서 시안 모달로 바꾼다 */
-async function confirmMassDelete(details: MassDeleteDetails): Promise<boolean> {
+// 409 확인을 기다리는 동안 렌더러의 답을 받을 자리 (SCR-02 모달)
+let pendingConfirm: ((ok: boolean) => void) | null = null
+
+/** 렌더러가 답할 때까지 기다린다. 답은 true/false뿐이고 삭제 개수는 메인이 들고 있다 */
+function askRenderer(details: MassDeleteDetails): Promise<boolean> {
   setSyncState({ ...syncState, phase: 'needs_confirm', confirm: details })
-  const preview = details.preview.map((b) => `· ${b.title || b.url}`).join('\n')
-  const { response } = await dialog.showMessageBox({
-    type: 'warning',
-    buttons: ['취소', `${details.deleteCount}개 지우기`],
-    defaultId: 0,
-    cancelId: 0,
-    title: '바로',
-    message: `크롬에 없는 북마크 ${details.deleteCount}개를 바로에서 지울까요?`,
-    detail: `지금 바로에 있는 동기화 북마크 ${details.syncedTotal}개 중 ${details.deleteCount}개가 사라집니다.\n방문 기록도 함께 지워지고 되돌릴 수 없습니다.\n\n${preview}${details.preview.length < details.deleteCount ? '\n· …' : ''}`
+  return new Promise<boolean>((resolve) => {
+    pendingConfirm = resolve
   })
-  return response === 1
+}
+
+/** 렌더러의 답을 한 번만 받아 넘긴다(중복 호출·창 닫힘 모두 여기로 모인다) */
+function settleConfirm(ok: boolean): void {
+  const resolve = pendingConfirm
+  pendingConfirm = null
+  resolve?.(ok)
+}
+
+/**
+ * 대량 삭제 확인 (DESK-03). 시안 모달(SCR-02)로 묻는다.
+ * 창이 없으면 물을 곳이 없으므로 취소로 본다(메인이 영원히 기다리지 않게)
+ */
+async function confirmMassDelete(details: MassDeleteDetails): Promise<boolean> {
+  if (BrowserWindow.getAllWindows().length === 0) return false
+  return askRenderer(details)
 }
 
 /** 북마크가 0개일 때 (수동 동기화에서만 불린다) */
@@ -159,6 +172,19 @@ async function confirmSuspicious(): Promise<boolean> {
       '프로필을 잘못 골랐거나 파일을 읽지 못했을 수 있습니다.\n계속하면 바로의 동기화 북마크가 모두 지워질 수 있습니다.'
   })
   return response === 1
+}
+
+/**
+ * 앱을 켠 뒤 한 번. 첫 동기화 전(lastSyncedAt이 null)이면 **자동으로 보내지 않고**
+ * SCR-02가 사용자에게 프로필을 고르게 한다(docs/01-spec.md '자동 동기화')
+ */
+async function startupSync(): Promise<void> {
+  const me = await fetchMe()
+  // 서버에 못 물어본 경우(오프라인 등)는 홈으로 보낸다. 첫 사용자는 어차피 지금 동기화할 수 없고,
+  // 이미 쓰던 사용자에게 첫 동기화 화면이 잘못 뜨는 편이 더 나쁘다
+  const firstSync = me ? me.lastSyncedAt === null : false
+  setSyncState({ ...syncState, firstSync })
+  if (!firstSync) await syncNow('startup')
 }
 
 function syncNow(trigger: SyncTrigger): Promise<SyncState> {
@@ -183,8 +209,9 @@ function syncNow(trigger: SyncTrigger): Promise<SyncState> {
       pendingSync = null
     })
     .then((next) => {
-      setSyncState(next)
-      return next
+      // runSync는 firstSync를 모른다. 성공했으면 더는 첫 동기화가 아니고, 아니면 그대로 둔다
+      setSyncState({ ...next, firstSync: next.phase === 'done' ? false : syncState.firstSync })
+      return syncState
     })
   setSyncState({ ...syncState, phase: 'syncing', error: null })
   return pendingSync
@@ -228,7 +255,7 @@ app.whenReady().then(() => {
     // 자동은 북마크 0개면 보내지 않고, 대량 삭제는 확인을 거친다
     if (status.session && !didStartupSync) {
       didStartupSync = true
-      void syncNow('startup')
+      void startupSync()
     }
   })
   // safeStorage는 app ready 뒤에만 쓸 수 있어서 여기서 시작한다
@@ -241,6 +268,8 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  // 확인 모달을 띄운 채 창을 닫았으면 취소로 본다(runSync가 영원히 기다리지 않게)
+  settleConfirm(false)
   // Windows 전용이라 창을 닫으면 종료한다. DESK-05에서 트레이로 바꾼다.
   if (process.platform !== 'darwin') app.quit()
 })

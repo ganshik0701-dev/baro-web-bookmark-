@@ -16,6 +16,11 @@ export type SyncState = {
   error: { code: string; message: string } | null
   /** 이번에 읽은 프로필(화면 표시용) */
   profile: { name: string; displayName: string | null } | null
+  /**
+   * 아직 한 번도 동기화하지 않은 계정인가 (SCR-02를 띄울지 판단).
+   * null이면 아직 확인 전. 서버 GET /me의 lastSyncedAt으로 정한다
+   */
+  firstSync: boolean | null
 }
 
 export const initialSyncState: SyncState = {
@@ -23,7 +28,8 @@ export const initialSyncState: SyncState = {
   lastResult: null,
   confirm: null,
   error: null,
-  profile: null
+  profile: null,
+  firstSync: null
 }
 
 export type SyncDeps = {
