@@ -134,13 +134,15 @@
     - drizzle이 JS 배열을 파라미터로 펼쳐 `($2,$3)::text[]`가 되는 문제 → `sql.param(buckets)`로 감쌈
   - [x] 테스트 7개: 한도 초과·엔드포인트 버킷 우선·두 행 생성·사용자당 합산·fail-open·전용 역할이 다른 표 접근 거절
   - [x] 실제 토큰 HTTP 확인(로컬 개발 서버, 테스트 계정): `/metadata` **20회 통과 → 21회째부터 429**, `retry-after` 헤더와 `details.bucket` 정상, 다음 분에 풀림, `/me`는 metadata 한도와 무관, `global`을 120으로 채우면 `/me`·`/bookmarks`·`/tokens` 모두 429
-  - [x] 확인 뒤 정리: `rate_limits` 0행, 확인용 세션 로그아웃(204)
+  - [x] 로컬 확인 뒤 정리: `rate_limits` 0행, 확인용 세션 로그아웃(204)
   - [x] **운영(Vercel) 확인**: `/metadata` 20회 통과 → 21회째부터 **429**, `Retry-After` 헤더·`details.bucket` 정상(배포 전후 두 번 확인)
   - [x] 지연 측정에서 설계 오류를 잡음: '왕복 1회'로 설계했는데 `set local role`이 트랜잭션을 요구해 실제로는 **4왕복**이었다
     - 로컬→서울 DB 실측 **56ms → 32ms**(한 문장으로 바꾼 뒤). `select 1` 바닥값이 19ms라 나머지는 왕복 자체의 비용
     - 운영 `/me` − `/health` 기준선: **77ms → 28ms**
     - 역할 경계는 EXECUTE 권한으로 지킨다(함수는 `baro_rate_limiter`에만 주어져 PostgREST로는 못 부른다). API는 그 역할의 멤버로서 상속받아 한 문장으로 부른다. CLAUDE.md·02-db.md도 정정
-  - [x] 확인 뒤 정리: `rate_limits` 0행, 확인용 세션 로그아웃(204)
+  - [x] 운영 확인 뒤 정리: `rate_limits` 0행, 확인용 세션 로그아웃(204)
+  - [x] `supabase link` 복구(`--project-ref hpadbigfppaypvgmzttk`). `migration list`로 001~007 로컬·원격 일치 확인 — 007을 직접 적용한 것도 정상 인식된다
+    - 참고: 토큰은 Windows 자격 증명 관리자에 있다. `supabase login`은 TTY가 필요해 별도 터미널에서 해야 하고, `projects list`는 `LegacyPlatformAuthRequiredError`로 실패하지만 `link`·`migration list`·`db push`는 정상 동작한다
   - 남음: 오래된 행 정리는 함수가 약 1% 확률로 지우고, 본격적인 정리는 v1.1 '오래된 로그 정리 작업'
 - [x] `/tokens` 3종, 토큰 해시 저장, 인증 미들웨어 (EXT-01)
   - [x] 설계 승인: 조회 전용 역할 `baro_token_resolver` + `private` 스키마, 확장 토큰은 지금 `GET /me`만, `last_used_at` 5분 단위
