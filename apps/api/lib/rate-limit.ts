@@ -42,15 +42,15 @@ export async function checkRateLimit(userId: string, endpoint?: RateBucket): Pro
 
   let hits: Hit[]
   try {
-    hits = await getRawDb().transaction(async (tx) => {
-      // 전용 역할로 바꿔 함수 하나만 부른다. SET LOCAL이라 트랜잭션이 끝나면 돌아온다
-      await tx.execute(sql`set local role baro_rate_limiter`)
-      // 배열은 sql.param으로 감싼다. 그냥 넣으면 drizzle이 요소마다 파라미터를 만들어
-      // ($2, $3)::text[] 같은 잘못된 SQL이 된다
-      return tx.execute<Hit>(
-        sql`select * from private.hit_rate_limit(${userId}::uuid, ${sql.param(buckets)}::text[])`
-      )
-    })
+    // 트랜잭션을 열지 않고 한 문장만 보낸다. `set local role`을 쓰려면 트랜잭션이 필요한데
+    // 그러면 BEGIN·SET·COMMIT까지 왕복이 4회가 되어 56ms가 걸린다(한 문장이면 30ms, 실측).
+    // 역할 경계는 EXECUTE 권한으로 지킨다: 이 함수는 baro_rate_limiter에만 주어져 있어
+    // PostgREST(anon·authenticated)로는 부를 수 없고, API 연결 계정은 그 역할의 멤버로서 상속받아 부른다.
+    // 호출이 이 한 문장뿐이라 같은 트랜잭션에 다른 쿼리가 섞일 여지도 없다.
+    // 배열은 sql.param으로 감싼다(그냥 넣으면 drizzle이 요소마다 파라미터를 만들어 ($2,$3)::text[]가 된다)
+    hits = await getRawDb().execute<Hit>(
+      sql`select * from private.hit_rate_limit(${userId}::uuid, ${sql.param(buckets)}::text[])`
+    )
   } catch (err) {
     console.error('[rate-limit] 세지 못했습니다:', err instanceof Error ? err.message : String(err))
     return { ok: true }
