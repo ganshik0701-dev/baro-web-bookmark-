@@ -1,6 +1,7 @@
 // TanStack Query 설정과 북마크 목록 (SCR-03, docs/01-spec.md '목록 캐시와 갱신').
 import { focusManager, QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Bookmark } from '@baro/shared'
+import { orderLikeServer } from './order'
 
 /** 목록을 가리키는 키. 무효화·비우기에 같은 값을 쓴다 */
 export const BOOKMARKS_KEY = ['bookmarks'] as const
@@ -50,15 +51,6 @@ export function useBookmarks() {
       return r.data
     }
   })
-}
-
-/**
- * 서버 GET /bookmarks와 같은 순서: 고정 먼저, 그다음 최근 추가순(created_desc).
- * 캐시를 직접 고칠 때(고정 바꾸기) 이 순서로 다시 세운다. 안 그러면 오래된 북마크의 고정을 풀었을 때
- * 아래 섹션 맨 앞에 잘못 놓인다. SEARCH-04에서 정렬이 늘면 고른 정렬 기준으로 바꾼다
- */
-export function orderLikeServer(list: Bookmark[]): Bookmark[] {
-  return [...list].sort((a, b) => Number(b.isPinned) - Number(a.isPinned) || b.createdAt.localeCompare(a.createdAt))
 }
 
 /**

@@ -83,6 +83,7 @@ profiles 행이 없으면(가입 트리거가 실패한 경우 등) `401 INVALID
 
 쿼리: `sort`(created_desc 기본 / visits_30d / visited_desc / title_asc / custom), `groupId`(uuid 또는 `none`), `tag`.
 검색어 필터는 클라이언트에서 하므로 한 번에 전체를 받는다. 고정된 북마크가 항상 앞에 온다.
+정렬 기준이 같은 북마크끼리는 **`id` 오름차순**으로 끊는다(`created_desc`면 `is_pinned DESC, created_at DESC, id ASC`). 크롬 샘플처럼 추가 시각이 같은 북마크가 있어서, 끊는 기준이 없으면 요청마다 순서가 달라지고 방문·고정으로 행이 다시 쓰일 때 타일이 자리를 바꾼다. 앱이 캐시를 직접 고칠 때(고정 바꾸기)도 같은 규칙으로 다시 세운다. SEARCH-04의 다른 정렬도 마지막에 `id ASC`를 붙인다.
 4주차(BM-01~05)에는 `created_desc`만, 쿼리 없이 구현한다. 정렬 5종·필터는 SEARCH-04에서 붙인다.
 
 ```json

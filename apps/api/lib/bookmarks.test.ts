@@ -173,4 +173,18 @@ describe.skipIf(!process.env.DATABASE_POOLER_URL)('bookmarks (BM-01~05)', () => 
     expect((await getBookmark(A, v.id)).clickCount).toBe(2)
     expect(await logs()).toBe(2)
   })
+
+  it('목록: 추가 시각이 같으면 id 오름차순, 방문으로 행이 다시 쓰여도 순서가 그대로', async () => {
+    const made = await Promise.all(['t1', 't2', 't3', 't4'].map((k) => create(B, { url: `https://tie-${k}.example.com` })))
+    const ids = made.map((b) => b.id)
+    await getRawDb().execute(sql`update public.bookmarks set created_at = '2026-08-01T03:00:00Z'
+      where id in (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})`)
+    const expected = [...ids].sort()
+    const tied = async () => (await listBookmarks(B)).map((b) => b.id).filter((id) => ids.includes(id))
+
+    expect(await tied()).toEqual(expected)
+    // 방문하면 그 행이 새로 쓰여 저장 위치가 바뀐다. 끊는 기준이 없을 때 순서가 바뀌던 경로
+    for (const id of [...expected].reverse()) await recordVisit(B, id)
+    expect(await tied()).toEqual(expected)
+  })
 })

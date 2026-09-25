@@ -3,7 +3,7 @@
 // 남의 북마크·그룹은 RLS와 user_id 조건 때문에 '없는 것'으로 보인다. 그래서 403이 아니라 404다(존재 자체를 숨김).
 import { randomUUID } from 'node:crypto'
 import { domainToUnicode } from 'node:url'
-import { and, desc, eq, isNull, ne, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, isNull, ne, sql } from 'drizzle-orm'
 import { bookmarks, groups } from '@baro/db'
 import { normalizeUrl, type Bookmark, type BookmarkSource, type CreateBookmarkInput, type UpdateBookmarkInput } from '@baro/shared'
 import type { AuthContext } from './auth'
@@ -35,14 +35,18 @@ const notFound = () => new ApiError('BOOKMARK_NOT_FOUND', '북마크를 찾을 �
 const duplicate = (existingId: string) =>
   new ApiError('DUPLICATE_URL', '이미 저장된 주소입니다', { existingId })
 
-/** 목록. 4주차에는 created_desc만(고정이 먼저). 정렬 5종·필터는 SEARCH-04 */
+/**
+ * 목록. 4주차에는 created_desc만(고정이 먼저). 정렬 5종·필터는 SEARCH-04.
+ * 추가 시각이 같은 북마크가 있어(크롬 샘플 등) 마지막에 id로 끊는다. 없으면 요청마다 순서가 바뀐다.
+ * 앱의 orderLikeServer(apps/desktop/.../lib/queries.ts)와 같은 규칙이어야 한다
+ */
 export function listBookmarks(auth: AuthContext): Promise<Bookmark[]> {
   return withUserDb(auth, async (tx) => {
     const rows = await tx
       .select()
       .from(bookmarks)
       .where(eq(bookmarks.userId, auth.userId))
-      .orderBy(desc(bookmarks.isPinned), desc(bookmarks.createdAt))
+      .orderBy(desc(bookmarks.isPinned), desc(bookmarks.createdAt), asc(bookmarks.id))
     return rows.map(toBookmark)
   })
 }

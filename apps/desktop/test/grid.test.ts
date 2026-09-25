@@ -1,6 +1,8 @@
-// SCR-03 그리드의 순수 함수: 타일 글자·색·파비콘 주소, 창 너비별 배치, 상대 시각
+// SCR-03 그리드의 순수 함수: 타일 글자·색·파비콘 주소, 창 너비별 배치, 상대 시각, 목록 순서
 import { describe, expect, it } from 'vitest'
+import type { Bookmark } from '@baro/shared'
 import { DEFAULT_GRID, pickLayout, readGridTokens } from '../src/renderer/src/lib/grid-layout'
+import { orderLikeServer } from '../src/renderer/src/lib/order'
 import { relativeTime } from '../src/renderer/src/lib/relative-time'
 import { faviconUrl, isUsableFavicon, tileColor, tileHost, tileLabel, tileLetter } from '../src/renderer/src/lib/tile'
 
@@ -129,5 +131,37 @@ describe('relativeTime', () => {
   it('하루 넘으면 날짜, 이상한 값은 빈 문자열', () => {
     expect(relativeTime('2026-09-20T03:00:00Z', now)).toMatch(/^9월 20일$/)
     expect(relativeTime('nope', now)).toBe('')
+  })
+})
+
+describe('orderLikeServer (서버 GET /bookmarks와 같은 순서)', () => {
+  const bm = (id: string, createdAt: string, isPinned = false) => ({ id, createdAt, isPinned }) as Bookmark
+  const ids = (list: Bookmark[]) => list.map((b) => b.id)
+
+  it('고정 먼저, 그다음 최근 추가순', () => {
+    const list = [bm('a', '2026-01-01T00:00:00.000Z'), bm('b', '2026-03-01T00:00:00.000Z'), bm('c', '2025-01-01T00:00:00.000Z', true)]
+    expect(ids(orderLikeServer(list))).toEqual(['c', 'b', 'a'])
+  })
+
+  it('추가 시각이 같으면 id 오름차순. 들어온 순서와 상관없이 늘 같다', () => {
+    const t = '2026-08-01T03:00:00.000Z'
+    const x = '27190994-f11d-4125-a4fe-7a7da47e1c64'
+    const y = '9532942e-bdbf-41f6-85cb-65a62d060154'
+    const z = 'cdfe7a2b-1455-4636-a691-8d2deebf0de0'
+    for (const order of [[x, y, z], [z, y, x], [y, z, x]]) {
+      expect(ids(orderLikeServer(order.map((id) => bm(id, t))))).toEqual([x, y, z])
+    }
+  })
+
+  it('고정을 풀면 원래 자리(추가 시각·id 순)로 돌아간다', () => {
+    const t = '2026-08-01T03:00:00.000Z'
+    const list = [bm('b', t, true), bm('a', t), bm('c', t)]
+    expect(ids(orderLikeServer(list.map((b) => ({ ...b, isPinned: false }))))).toEqual(['a', 'b', 'c'])
+  })
+
+  it('원본 배열을 바꾸지 않는다', () => {
+    const list = [bm('b', '2026-01-01T00:00:00.000Z'), bm('a', '2026-02-01T00:00:00.000Z')]
+    orderLikeServer(list)
+    expect(ids(list)).toEqual(['b', 'a'])
   })
 })
