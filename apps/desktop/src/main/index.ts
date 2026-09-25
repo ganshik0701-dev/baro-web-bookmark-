@@ -1,7 +1,18 @@
 import { app, BrowserWindow, dialog, Menu, shell, ipcMain, type MenuItemConstructorOptions, type OpenDialogOptions } from 'electron'
 import { join } from 'node:path'
 import type { ApiFailure, ApiSuccess, HealthResponse, MassDeleteDetails } from '@baro/shared'
-import { API_BASE, apiDeps, deleteBookmark, fetchMe, listBookmarks, recordVisit, setPinned } from './api'
+import {
+  API_BASE,
+  apiDeps,
+  createBookmark,
+  deleteBookmark,
+  fetchMe,
+  fetchMetadata,
+  listBookmarks,
+  recordVisit,
+  setPinned,
+  updateBookmark
+} from './api'
 import { parseTileMenuInput, tileMenuItems, type TileMenuChoice } from './tile-menu'
 import {
   cancelLogin,
@@ -123,6 +134,10 @@ function registerIpc(): void {
   ipcMain.handle('bookmarks:visit', (_event, id: unknown) => recordVisit(id))
   ipcMain.handle('bookmarks:setPinned', (_event, id: unknown, pinned: unknown) => setPinned(id, pinned))
   ipcMain.handle('bookmarks:delete', (_event, id: unknown) => deleteBookmark(id))
+  // SCR-04. 값은 api-client가 shared 스키마로 다시 검사한다(주소·제목·아이콘만 받는다)
+  ipcMain.handle('bookmarks:create', (_event, raw: unknown) => createBookmark(raw))
+  ipcMain.handle('bookmarks:update', (_event, id: unknown, raw: unknown) => updateBookmark(id, raw))
+  ipcMain.handle('metadata:fetch', (_event, url: unknown) => fetchMetadata(url))
   // 보조 메뉴는 OS 네이티브 메뉴로 띄우고, 고른 항목 이름만 돌려준다(요청은 렌더러가 항목별로 한다)
   ipcMain.handle('bookmarks:menu', (event, raw: unknown) =>
     showTileMenu(BrowserWindow.fromWebContents(event.sender), raw)

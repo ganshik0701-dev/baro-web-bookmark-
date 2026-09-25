@@ -72,6 +72,11 @@
   --btn-danger-bg: var(--danger);
   --btn-danger-text: #ffffff;
 
+  /* ── 입력칸 ─────────────────────────────────────── */
+  /* 모서리는 --btn-radius, 테두리는 --border를 같이 쓴다 */
+  --input-height: 44px;
+  --input-pad-x: 14px;
+
   /* ── 카드·패널 ──────────────────────────────────── */
   --card-radius: 18px;
   --card-radius-lg: 22px;

@@ -1,8 +1,9 @@
 // SCR-03 메인 그리드 (docs/01-spec.md '메인 그리드 규칙', 시안 project/Main.dc.html).
 // 이번 구성: 상단바(동기화·계정) + 그리드 + 상태바. 검색·정렬·추가·그룹 탭은 해당 기능 때 붙인다.
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AuthSession, AuthStatus, Bookmark } from '@baro/shared'
 import AccountMenu from '../components/AccountMenu'
+import BookmarkModal, { type BookmarkModalMode } from '../components/BookmarkModal'
 import BookmarkGrid from '../components/BookmarkGrid'
 import StatusBar, { type StatusMessage } from '../components/StatusBar'
 import { usePinMutation, useBookmarks } from '../lib/queries'
@@ -39,6 +40,21 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
   const pin = usePinMutation()
   const deletion = usePendingDelete({ onFailed: () => setNotice('삭제하지 못했습니다') })
 
+  // SCR-04 추가·수정 모달. 닫으면 연 버튼(또는 타일)으로 포커스를 돌려준다
+  const [modal, setModal] = useState<BookmarkModalMode | null>(null)
+  const returnFocus = useRef<HTMLElement | null>(null)
+  const openModal = useCallback((mode: BookmarkModalMode) => {
+    returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setModal(mode)
+  }, [])
+  const closeModal = useCallback(() => setModal(null), [])
+  // 뒤 화면의 inert가 풀린 다음에 포커스를 돌려준다(닫는 순간에는 아직 inert라 focus가 먹지 않는다)
+  useEffect(() => {
+    if (modal !== null || !returnFocus.current) return
+    returnFocus.current.focus()
+    returnFocus.current = null
+  }, [modal])
+
   const syncing = sync?.phase === 'syncing' || sync?.phase === 'needs_confirm'
 
   // OPEN-01. 기본 브라우저로 연다. 주소 검사(http/https만)는 메인이 한다.
@@ -59,7 +75,9 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
   const openMenu = useCallback(
     async (b: Bookmark, at: { x: number; y: number } | null) => {
       const choice = await window.baro.showTileMenu({ isPinned: b.isPinned, source: b.source, ...at })
-      if (choice === 'pin' || choice === 'unpin') {
+      if (choice === 'edit') {
+        openModal({ kind: 'edit', bookmark: b })
+      } else if (choice === 'pin' || choice === 'unpin') {
         mutatePin(
           { id: b.id, pinned: choice === 'pin' },
           { onSuccess: () => setNotice(null), onError: () => setNotice('고정하지 못했습니다') }
@@ -69,7 +87,7 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
         startDelete(b)
       }
     },
-    [mutatePin, startDelete]
+    [mutatePin, startDelete, openModal]
   )
 
   // 상태바 오른쪽에는 가장 급한 것 하나만.
@@ -95,7 +113,8 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
 
   return (
     <div className="home">
-      <header className="topbar">
+      {/* 모달이 열린 동안 뒤 화면은 inert: Tab·클릭이 닿지 않는다(보이지 않는 타일이 열리지 않게) */}
+      <header className="topbar" inert={modal !== null}>
         <h1 ref={headingRef} tabIndex={-1} className="visually-hidden">
           북마크
         </h1>
@@ -111,10 +130,16 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
           </svg>
           {syncing ? '동기화 중…' : '동기화'}
         </button>
+        <button type="button" className="button-primary toolbar-button" onClick={() => openModal({ kind: 'add' })}>
+          <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+            <path d="M10 4v12M4 10h12" />
+          </svg>
+          북마크 추가
+        </button>
         <AccountMenu session={session} waitingLogout={waitingLogout} onLogout={onLogout} />
       </header>
 
-      <main className="home-main">
+      <main className="home-main" inert={modal !== null}>
         {list.data ? (
           list.data.length > 0 ? (
             <BookmarkGrid bookmarks={list.data} hidden={deletion.hidden} onOpen={open} onMenu={openMenu} />
@@ -140,7 +165,9 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
         )}
       </main>
 
-      <StatusBar sync={sync} message={message} />
+      <StatusBar sync={sync} message={message} inert={modal !== null} />
+
+      {modal && <BookmarkModal initial={modal} bookmarks={list.data ?? []} onOpen={open} onClose={closeModal} />}
     </div>
   )
 }

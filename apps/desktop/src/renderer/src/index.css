@@ -655,6 +655,11 @@ button:focus-visible {
   color: var(--text-subtle);
 }
 
+/* 기본 버튼('북마크 추가')의 + 아이콘은 글자와 같은 흰색 */
+.button-primary.toolbar-button svg {
+  color: inherit;
+}
+
 .account {
   position: relative;
 }
@@ -855,4 +860,100 @@ button:focus-visible {
   color: var(--accent);
   text-decoration: underline;
   cursor: pointer;
+}
+
+/* ---------- SCR-04 북마크 추가·수정 (시안 project/Bookmark.dc.html) ---------- */
+/* 틀은 .modal(409와 같은 폭·여백·제목)을 그대로 쓴다 */
+
+.field {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  font-size: var(--text-caption);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.input {
+  height: var(--input-height);
+  box-sizing: border-box;
+  padding: 0 var(--input-pad-x);
+  border: var(--card-border-width) solid var(--border);
+  border-radius: var(--btn-radius);
+  background: var(--surface);
+  font: inherit;
+  font-size: var(--text-body);
+  color: var(--text);
+}
+
+.input:focus-visible {
+  outline: var(--focus-ring-width) solid var(--accent);
+  outline-offset: 1px;
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.input:disabled {
+  color: var(--text-subtle);
+}
+
+.field-error {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--danger);
+}
+
+.field-hint {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--text-subtle);
+}
+
+.bm-title-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.bm-preview {
+  flex-shrink: 0;
+  display: flex;
+}
+
+/* 중복(409): 구분선 아래 안내. 오류가 아니라 안내라 본문 색 */
+.bm-duplicate {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 16px;
+  border-top: var(--card-border-width) solid var(--divider);
+}
+
+.bm-duplicate-title {
+  margin: 0;
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  color: var(--text);
+}
+
+.bm-duplicate-title strong {
+  font-weight: 600;
+}
+
+.bm-duplicate-note {
+  margin: 0;
+  font-size: var(--text-caption);
+  line-height: var(--leading-body);
+  color: var(--text-subtle);
+}
+
+.modal-actions .button-secondary:disabled {
+  color: var(--text-subtle);
+  cursor: default;
 }

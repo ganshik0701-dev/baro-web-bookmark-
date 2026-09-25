@@ -1,9 +1,9 @@
 // 아이콘 하나 (SCR-03). 클릭하면 기본 브라우저로 연다(OPEN-01). 우클릭·Shift+F10·메뉴 키는 보조 메뉴(OPEN-03).
-// 글자 타일을 먼저 그리고, 파비콘이 제대로 불러와진 뒤에만 파비콘 타일로 바꾼다.
-// 그래서 오프라인이거나 실패해도 깨진 이미지가 보이지 않고, 두 타일은 크기가 같아 줄이 흔들리지 않는다.
-import { memo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
+// 아이콘 그리는 규칙(글자 타일 → 파비콘)은 TileIcon에 있다.
+import { memo, useRef, type KeyboardEvent, type MouseEvent } from 'react'
 import type { Bookmark } from '@baro/shared'
-import { faviconUrl, isUsableFavicon, tileColor, tileLabel, tileLetter } from '../lib/tile'
+import { tileLabel } from '../lib/tile'
+import TileIcon from './TileIcon'
 
 type Props = {
   bookmark: Bookmark
@@ -17,16 +17,8 @@ function isMenuKey(e: KeyboardEvent): boolean {
   return e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')
 }
 
-type IconState = { src: string | null; status: 'loading' | 'ok' | 'failed' }
-
 function BookmarkTile({ bookmark, onOpen, onMenu }: Props) {
-  const src = faviconUrl(bookmark.iconUrl, bookmark.url)
-  const [icon, setIcon] = useState<IconState>({ src, status: src ? 'loading' : 'failed' })
-  // 주소가 바뀌면(수정·동기화) 처음부터 다시 불러온다
-  if (icon.src !== src) setIcon({ src, status: src ? 'loading' : 'failed' })
-
   const label = tileLabel(bookmark.title, bookmark.url)
-  const showFavicon = icon.status === 'ok'
 
   const fromKeyboard = useRef(false)
   const openMenu = (e: MouseEvent<HTMLButtonElement>) => {
@@ -53,27 +45,7 @@ function BookmarkTile({ bookmark, onOpen, onMenu }: Props) {
       }}
       onContextMenu={openMenu}
     >
-      <span
-        className={`tile-icon ${showFavicon ? 'is-favicon' : 'is-letter'}`}
-        style={showFavicon ? undefined : { background: `var(--tile-${tileColor(bookmark.url)})` }}
-        aria-hidden="true"
-      >
-        {!showFavicon && tileLetter(bookmark.title, bookmark.url)}
-        {src && icon.status !== 'failed' && (
-          <img
-            className="tile-favicon"
-            src={src}
-            alt=""
-            loading="lazy"
-            draggable={false}
-            referrerPolicy="no-referrer"
-            onLoad={(e) =>
-              setIcon({ src, status: isUsableFavicon(e.currentTarget.naturalWidth) ? 'ok' : 'failed' })
-            }
-            onError={() => setIcon({ src, status: 'failed' })}
-          />
-        )}
-      </span>
+      <TileIcon title={bookmark.title} url={bookmark.url} iconUrl={bookmark.iconUrl} />
       <span className="tile-label">{label}</span>
     </button>
   )

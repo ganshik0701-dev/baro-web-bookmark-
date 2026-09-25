@@ -1,12 +1,15 @@
-// 인증 API 호출 공통 부분(authedFetch)과 GET /bookmarks(fetchBookmarks).
+// 인증 API 호출 공통 부분(authedFetch)과 GET /bookmarks(fetchBookmarks), 북마크 단건·추가·수정·/metadata.
 // 진짜 서버 없이 가짜 fetch로, 요청이 몇 번 나갔는지와 어떤 토큰을 실었는지를 센다.
 import { describe, expect, it } from 'vitest'
 import {
   authedFetch,
   deleteBookmarkById,
   fetchBookmarks,
+  getMetadata,
   isBookmarkId,
+  patchBookmark,
   patchPinned,
+  postBookmark,
   postVisit,
   type ApiDeps
 } from '../src/main/api-client'
@@ -209,5 +212,70 @@ describe('북마크 하나에 대한 요청 (OPEN-02·03, BM-05)', () => {
   it('연결 실패는 NETWORK (던지지 않는다)', async () => {
     const s = setup(['network-error'])
     expect(await deleteBookmarkById(s.deps, ID)).toMatchObject({ error: { code: 'NETWORK' } })
+  })
+})
+
+describe('추가·수정·제목 자동 채움 (SCR-04)', () => {
+  const ID = '9532942e-bdbf-41f6-85cb-65a62d060154'
+
+  it('추가: 스키마를 거친 값만 보낸다(https:// 부착, 모르는 칸은 버림)', async () => {
+    const s = setup([{ status: 201, body: { data: BOOKMARK } }])
+    const r = await postBookmark(s.deps, { url: 'github.com', title: ' GitHub ', groupId: 'x', isPinned: true })
+    expect(r).toEqual({ data: BOOKMARK })
+    expect(s.sent[0]).toMatchObject({ url: 'http://api.test/api/v1/bookmarks', method: 'POST' })
+    expect(JSON.parse(s.sent[0].body as string)).toEqual({ url: 'https://github.com/', title: 'GitHub' })
+  })
+
+  it('추가: 409면 details.existingId까지 넘긴다', async () => {
+    const s = setup([{ status: 409, body: { error: { code: 'DUPLICATE_URL', message: '이미', details: { existingId: ID } } } }])
+    expect(await postBookmark(s.deps, { url: 'github.com' })).toEqual({
+      error: { code: 'DUPLICATE_URL', message: '이미', details: { existingId: ID } }
+    })
+  })
+
+  it.each([
+    [{ url: 'javascript:alert(1)' }],
+    [{ url: '' }],
+    [{ url: 'a.com', title: 'x'.repeat(101) }],
+    [{ url: 'a.com', iconUrl: 'http://a.com/i.png' }],
+    [null]
+  ])('추가: 스키마에 안 맞으면 요청 0건 %j', async (raw) => {
+    const s = setup([])
+    const r = await postBookmark(s.deps, raw)
+    expect('error' in r && r.error.code).toBe('INVALID_INPUT')
+    expect(s.sent).toHaveLength(0)
+  })
+
+  it('수정: 바뀐 칸만 PATCH, id가 uuid가 아니면 요청 0건', async () => {
+    const s = setup([{ status: 200, body: { data: BOOKMARK } }])
+    await patchBookmark(s.deps, ID, { title: '새 제목' })
+    expect(s.sent[0]).toMatchObject({ url: `http://api.test/api/v1/bookmarks/${ID}`, method: 'PATCH' })
+    expect(JSON.parse(s.sent[0].body as string)).toEqual({ title: '새 제목' })
+
+    const t = setup([])
+    expect(await patchBookmark(t.deps, '../me', { title: 'a' })).toMatchObject({ error: { code: 'INVALID_ID' } })
+    expect(t.sent).toHaveLength(0)
+  })
+
+  it('수정: 빈 제목·바꿀 칸 없음은 요청 0건', async () => {
+    const s = setup([])
+    for (const raw of [{ title: '  ' }, {}]) {
+      const r = await patchBookmark(s.deps, ID, raw)
+      expect('error' in r && r.error.code).toBe('INVALID_INPUT')
+    }
+    expect(s.sent).toHaveLength(0)
+  })
+
+  it('/metadata: 주소를 인코딩해 한 번, 빈 값은 null로', async () => {
+    const s = setup([{ status: 200, body: { data: { title: '네이버', iconUrl: '' } } }])
+    expect(await getMetadata(s.deps, 'naver.com/a?b=1&c=2')).toEqual({ data: { title: '네이버', iconUrl: null } })
+    expect(s.sent[0].url).toBe('http://api.test/api/v1/metadata?url=' + encodeURIComponent('https://naver.com/a?b=1&c=2'))
+  })
+
+  it('/metadata: 주소가 아니면 요청 0건, 서버 422는 그대로', async () => {
+    const s = setup([{ status: 422, body: { error: { code: 'METADATA_FETCH_FAILED', message: '실패' } } }])
+    expect(await getMetadata(s.deps, 'javascript:x')).toMatchObject({ error: { code: 'INVALID_INPUT' } })
+    expect(s.sent).toHaveLength(0)
+    expect(await getMetadata(s.deps, 'example.com')).toMatchObject({ error: { code: 'METADATA_FETCH_FAILED' } })
   })
 })

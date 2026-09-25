@@ -54,6 +54,17 @@ export function useBookmarks() {
 }
 
 /**
+ * SCR-04 저장 뒤: 서버 응답으로 그 항목만 넣거나 바꾼다(목록을 다시 받지 않는다). 순서는 서버와 같게 다시 세운다
+ */
+export function upsertBookmarkInCache(qc: QueryClient, saved: Bookmark): void {
+  qc.setQueryData<Bookmark[]>(BOOKMARKS_KEY, (list) => {
+    if (!list) return list
+    const exists = list.some((b) => b.id === saved.id)
+    return orderLikeServer(exists ? list.map((b) => (b.id === saved.id ? saved : b)) : [...list, saved])
+  })
+}
+
+/**
  * OPEN-03 고정/해제. 화면에 먼저 반영하고(낙관적) 요청한다.
  * 실패하면 그 항목만 되돌린다(다른 변화까지 덮어쓰지 않게 목록 전체를 되돌리지 않는다).
  * 성공하면 응답으로 그 항목만 바꾼다(목록을 다시 받지 않는다)

@@ -1,7 +1,7 @@
 // 인증이 필요한 API 호출의 공통 부분 (메인 프로세스 전용).
 // electron을 import하지 않고 의존성을 주입받는다 → 가짜 fetch로 테스트한다(test/api-client.test.ts).
 // 토큰은 여기서 헤더에 붙이기만 하고 돌려주지 않는다.
-import type { ApiFailure, Bookmark } from '@baro/shared'
+import { createBookmarkInput, httpUrl, updateBookmarkInput, type ApiFailure, type Bookmark } from '@baro/shared'
 
 export type ApiDeps = {
   /** 유효한 액세스 토큰. 만료가 가까우면 이 함수가 먼저 갱신한다 */
@@ -90,10 +90,13 @@ export type BookmarkResult = { data: Bookmark } | ApiFailure
 
 const INVALID_ID: ApiFailure = { error: { code: 'INVALID_ID', message: '북마크 id가 올바르지 않습니다' } }
 
-/** 응답 본문의 { error }를 꺼내거나, 없으면 상태 코드로 만든다 */
+/** 응답 본문의 { error }를 꺼내거나, 없으면 상태 코드로 만든다. details(409의 existingId 등)도 넘긴다 */
 async function failureOf(res: Response): Promise<ApiFailure> {
   const body = (await res.json().catch(() => null)) as ApiFailure | null
-  if (body && 'error' in body && body.error) return { error: { code: body.error.code, message: body.error.message } }
+  if (body && 'error' in body && body.error) {
+    const { code, message, details } = body.error
+    return { error: details === undefined ? { code, message } : { code, message, details } }
+  }
   return { error: { code: `HTTP_${res.status}`, message: `서버가 ${res.status}로 응답했습니다` } }
 }
 
@@ -105,18 +108,77 @@ export async function postVisit(deps: ApiDeps, id: unknown): Promise<DoneResult>
   return r.res.ok ? { ok: true } : failureOf(r.res)
 }
 
-/** PATCH /bookmarks/:id { isPinned } (OPEN-03). 바뀐 북마크를 돌려준다 */
-export async function patchPinned(deps: ApiDeps, id: unknown, pinned: unknown): Promise<BookmarkResult> {
-  if (!isBookmarkId(id) || typeof pinned !== 'boolean') return INVALID_ID
-  const r = await authedFetch(deps, `/bookmarks/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ isPinned: pinned }),
-    timeoutMs: 10_000
-  })
+/** 성공 응답의 { data: 북마크 }를 꺼낸다 */
+async function bookmarkOf(r: AuthedFetchResult): Promise<BookmarkResult> {
   if (r.kind === 'error') return { error: { code: r.code, message: r.message } }
   if (!r.res.ok) return failureOf(r.res)
   const body = (await r.res.json().catch(() => null)) as { data?: Bookmark } | null
   return body?.data ? { data: body.data } : { error: { code: `HTTP_${r.res.status}`, message: '응답을 읽지 못했습니다' } }
+}
+
+/** 렌더러가 보낸 값이 스키마를 통과하지 못했을 때. 요청은 보내지 않는다 */
+function invalidInput(message: string | undefined): ApiFailure {
+  return { error: { code: 'INVALID_INPUT', message: message ?? '입력이 올바르지 않습니다' } }
+}
+
+/** PATCH /bookmarks/:id { isPinned } (OPEN-03). 바뀐 북마크를 돌려준다 */
+export async function patchPinned(deps: ApiDeps, id: unknown, pinned: unknown): Promise<BookmarkResult> {
+  if (!isBookmarkId(id) || typeof pinned !== 'boolean') return INVALID_ID
+  return bookmarkOf(
+    await authedFetch(deps, `/bookmarks/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isPinned: pinned }),
+      timeoutMs: 10_000
+    })
+  )
+}
+
+// ─── 추가·수정 (SCR-04, BM-01~04) ────────────────────────────────────────
+// 렌더러가 보낸 값은 서버와 같은 shared 스키마로 여기서 한 번 더 검사하고, 받는 칸만 골라 보낸다
+
+/** 추가·수정 모달이 보낼 수 있는 칸. 그룹·태그는 P1 때 */
+export type BookmarkFields = { url?: unknown; title?: unknown; iconUrl?: unknown }
+
+function pickFields(raw: unknown): BookmarkFields {
+  if (typeof raw !== 'object' || raw === null) return {}
+  const r = raw as Record<string, unknown>
+  const out: BookmarkFields = {}
+  for (const k of ['url', 'title', 'iconUrl'] as const) if (k in r) out[k] = r[k]
+  return out
+}
+
+/** POST /bookmarks (BM-01). 409 DUPLICATE_URL이면 details.existingId가 함께 온다 */
+export async function postBookmark(deps: ApiDeps, raw: unknown): Promise<BookmarkResult> {
+  const parsed = createBookmarkInput.safeParse(pickFields(raw))
+  if (!parsed.success) return invalidInput(parsed.error.issues[0]?.message)
+  return bookmarkOf(
+    await authedFetch(deps, '/bookmarks', { method: 'POST', body: JSON.stringify(parsed.data), timeoutMs: 10_000 })
+  )
+}
+
+/** PATCH /bookmarks/:id (BM-04). 바뀐 칸만 받는다. 주소를 바꿔 다른 북마크와 겹치면 409 */
+export async function patchBookmark(deps: ApiDeps, id: unknown, raw: unknown): Promise<BookmarkResult> {
+  if (!isBookmarkId(id)) return INVALID_ID
+  const parsed = updateBookmarkInput.safeParse(pickFields(raw))
+  if (!parsed.success) return invalidInput(parsed.error.issues[0]?.message)
+  return bookmarkOf(
+    await authedFetch(deps, `/bookmarks/${id}`, { method: 'PATCH', body: JSON.stringify(parsed.data), timeoutMs: 10_000 })
+  )
+}
+
+export type MetadataResult = { data: { title: string | null; iconUrl: string | null } } | ApiFailure
+
+/** GET /metadata?url= (BM-01 자동 채움). 서버가 3초에 끊으므로 여유를 둬 8초 */
+export async function getMetadata(deps: ApiDeps, rawUrl: unknown): Promise<MetadataResult> {
+  const parsed = httpUrl.safeParse(rawUrl)
+  if (!parsed.success) return invalidInput(parsed.error.issues[0]?.message)
+  const r = await authedFetch(deps, `/metadata?url=${encodeURIComponent(parsed.data)}`, { timeoutMs: 8_000 })
+  if (r.kind === 'error') return { error: { code: r.code, message: r.message } }
+  if (!r.res.ok) return failureOf(r.res)
+  const body = (await r.res.json().catch(() => null)) as { data?: { title?: unknown; iconUrl?: unknown } } | null
+  if (!body?.data) return { error: { code: `HTTP_${r.res.status}`, message: '응답을 읽지 못했습니다' } }
+  const str = (v: unknown) => (typeof v === 'string' && v ? v : null)
+  return { data: { title: str(body.data.title), iconUrl: str(body.data.iconUrl) } }
 }
 
 /** DELETE /bookmarks/:id (BM-05). 5초 기다리기는 렌더러가 하고, 여기는 보내기만 한다 */

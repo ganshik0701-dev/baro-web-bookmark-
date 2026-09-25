@@ -6,25 +6,26 @@ const labels = (items: ReturnType<typeof tileMenuItems>) =>
   items.map((i) => (i.kind === 'separator' ? '---' : i.kind === 'note' ? `(${i.label})` : `${i.label}${i.enabled ? '' : ' [비활성]'}`))
 
 describe('tileMenuItems', () => {
-  it('바로에서 추가한 것(manual): 고정·삭제 모두 가능', () => {
-    expect(labels(tileMenuItems({ isPinned: false, source: 'manual' }))).toEqual(['고정', '---', '삭제'])
+  it('바로에서 추가한 것(manual): 고정·수정·삭제 모두 가능', () => {
+    expect(labels(tileMenuItems({ isPinned: false, source: 'manual' }))).toEqual(['고정', '수정', '---', '삭제'])
   })
 
   it('고정된 것은 "고정 해제"', () => {
     expect(labels(tileMenuItems({ isPinned: true, source: 'manual' }))[0]).toBe('고정 해제')
   })
 
-  it.each(['app_sync', 'ext_sync'] as const)('크롬에서 온 것(%s): 삭제 비활성 + 이유 줄', (source) => {
+  it.each(['app_sync', 'ext_sync'] as const)('크롬에서 온 것(%s): 수정·삭제 비활성 + 이유 줄', (source) => {
     expect(labels(tileMenuItems({ isPinned: false, source }))).toEqual([
       '고정',
+      '수정 [비활성]',
       '---',
       '삭제 [비활성]',
-      '(크롬에서 지우면 다음 동기화 때 사라집니다)'
+      '(크롬에서 고치거나 지우면 다음 동기화 때 반영됩니다)'
     ])
   })
 
-  it('HTML 가져오기(html_import)는 동기화가 되살리지 않으므로 삭제 가능', () => {
-    expect(labels(tileMenuItems({ isPinned: false, source: 'html_import' }))).toEqual(['고정', '---', '삭제'])
+  it('HTML 가져오기(html_import)는 동기화가 되살리지 않으므로 수정·삭제 가능', () => {
+    expect(labels(tileMenuItems({ isPinned: false, source: 'html_import' }))).toEqual(['고정', '수정', '---', '삭제'])
   })
 })
 

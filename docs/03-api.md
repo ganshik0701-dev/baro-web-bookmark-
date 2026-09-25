@@ -156,7 +156,7 @@ ids 최대 200개.
 
 ## GET /metadata?url=
 
-앱이 북마크를 저장하기 전에 제목·아이콘을 미리 채우려고 부른다. 서버가 사용자 대신 임의의 주소를 여는 구조라 SSRF 차단이 핵심이다. DB는 쓰지 않는다.
+앱이 북마크를 저장하기 전에 제목·아이콘을 미리 채우려고 부른다. 서버가 사용자 대신 임의의 주소를 여는 구조라 SSRF 차단이 핵심이다. DB는 쓰지 않는다. 앱은 추가·수정 모달의 주소 칸에서 포커스가 빠질 때만 부른다(docs/01-spec.md '추가·수정 모달 규칙').
 
 ```json
 { "data": { "title": "GitHub", "iconUrl": "https://www.google.com/s2/favicons?domain=github.com&sz=64" } }

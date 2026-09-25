@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type { ApiFailure, ApiSuccess, AuthStatus, BookmarkSource, HealthResponse } from '@baro/shared'
 // 타입만 가져온다(번들에 메인 코드가 들어가지 않는다)
 import type { ChromeProfile } from '../main/chrome-profiles'
-import type { BookmarkListResult, BookmarkResult, DoneResult } from '../main/api-client'
+import type { BookmarkFields, BookmarkListResult, BookmarkResult, DoneResult, MetadataResult } from '../main/api-client'
 import type { TileMenuChoice } from '../main/tile-menu'
 import type { ChromeReadResult, ChromeSelection } from '../main/chrome-selection'
 import type { SyncState } from '../main/sync'
@@ -48,6 +48,12 @@ const api = {
   setPinned: (id: string, pinned: boolean): Promise<BookmarkResult> => ipcRenderer.invoke('bookmarks:setPinned', id, pinned),
   // BM-05. 5초 기다린 뒤에 부른다(기다리기는 렌더러가 한다)
   deleteBookmark: (id: string): Promise<DoneResult> => ipcRenderer.invoke('bookmarks:delete', id),
+  // SCR-04. 409 DUPLICATE_URL이면 error.details.existingId가 온다
+  createBookmark: (fields: BookmarkFields): Promise<BookmarkResult> => ipcRenderer.invoke('bookmarks:create', fields),
+  updateBookmark: (id: string, fields: BookmarkFields): Promise<BookmarkResult> =>
+    ipcRenderer.invoke('bookmarks:update', id, fields),
+  // SCR-04 제목·아이콘 자동 채움. 주소 하나만 받고, 메인이 httpUrl로 다시 검사한다
+  fetchMetadata: (url: string): Promise<MetadataResult> => ipcRenderer.invoke('metadata:fetch', url),
   // OPEN-03. 네이티브 보조 메뉴. 고른 항목 이름만 온다(안 고르면 null). x·y는 키보드로 열 때 타일 아래 좌표
   showTileMenu: (input: { isPinned: boolean; source: BookmarkSource; x?: number; y?: number }): Promise<TileMenuChoice | null> =>
     ipcRenderer.invoke('bookmarks:menu', input),

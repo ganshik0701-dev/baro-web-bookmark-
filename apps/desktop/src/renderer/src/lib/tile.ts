@@ -64,6 +64,11 @@ export function faviconUrl(iconUrl: string | null, url: string): string | null {
   return host ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64` : null
 }
 
+/** 크롬에서 온 북마크. 바로에서 고치거나 지워도 다음 동기화 때 크롬 값으로 돌아간다(보조 메뉴와 SCR-04가 막는다) */
+export function isFromChrome(source: string): boolean {
+  return source === 'app_sync' || source === 'ext_sync'
+}
+
 /**
  * 불러온 파비콘을 쓸지. Google은 모르는 도메인에 16px 기본 아이콘(지구본)을 준다.
  * 16px 이하는 크게 늘리면 흐려서 어차피 글자 타일이 낫다

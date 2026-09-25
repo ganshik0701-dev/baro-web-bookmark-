@@ -3,12 +3,16 @@
 import {
   deleteBookmarkById,
   fetchBookmarks,
+  getMetadata,
+  patchBookmark,
   patchPinned,
+  postBookmark,
   postVisit,
   type ApiDeps,
   type BookmarkListResult,
   type BookmarkResult,
-  type DoneResult
+  type DoneResult,
+  type MetadataResult
 } from './api-client'
 import { forceRefresh, getAccessToken } from './auth'
 
@@ -31,6 +35,11 @@ export function listBookmarks(): Promise<BookmarkListResult> {
 export const recordVisit = (id: unknown): Promise<DoneResult> => postVisit(apiDeps, id)
 export const setPinned = (id: unknown, pinned: unknown): Promise<BookmarkResult> => patchPinned(apiDeps, id, pinned)
 export const deleteBookmark = (id: unknown): Promise<DoneResult> => deleteBookmarkById(apiDeps, id)
+
+/** SCR-04 추가·수정과 제목 자동 채움. 입력 검사는 api-client가 shared 스키마로 한다 */
+export const createBookmark = (raw: unknown): Promise<BookmarkResult> => postBookmark(apiDeps, raw)
+export const updateBookmark = (id: unknown, raw: unknown): Promise<BookmarkResult> => patchBookmark(apiDeps, id, raw)
+export const fetchMetadata = (url: unknown): Promise<MetadataResult> => getMetadata(apiDeps, url)
 
 /**
  * GET /me의 필요한 부분만. 실패하면 null(프로필 복원은 없으면 없는 대로 넘어간다).
