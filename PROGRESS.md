@@ -3,10 +3,10 @@
 전체 계획의 현재 상태. 작업이 끝날 때마다 여기 체크박스를 채운다.
 상세 내용은 `docs/05-roadmap.md`, 작업 지시 문구는 `docs/06-prompts.md`.
 
-마지막 갱신: 2026-09-25 (OPEN-02·03: 문서·API 완료, IPC 코드까지. 화면 연결 전에 중단)
+마지막 갱신: 2026-09-25 (OPEN-02·03, BM-05 완료. BM-07 범위 정리, 목록 순서·키 반복 메뉴 버그 수정)
 
 **다음 작업 (순서대로)**
-1. **OPEN-02·03 구현 (설계·문서 확정됨)** — API는 끝, IPC는 코드까지, 화면 연결부터 이어서. 6주차 'OPEN-02·03, BM-05' 항목의 '남은 것' 참고 → 그다음 SCR-04
+1. **SCR-04** 추가·수정 모달 (CSP img-src 재검토 포함)
 2. 미뤄 둔 것: 7주차 SCR-05의 앱+확장 한계 안내
 
 ---
@@ -319,7 +319,7 @@
 - [x] OPEN-01: 클릭 → 기본 브라우저로 열기
   - [x] 메인이 `javascript:`·`file:`·`data:`를 거절('http/https만 열 수 있습니다')
   - [x] 타일 클릭으로 기본 브라우저에 탭이 열림 — j 확인 중 바깥 클릭이 타일(`https://claude.ai/new`)에 떨어져 열렸고, 사람이 탭을 보고 확인(의도한 확인은 아니었다)
-- [ ] OPEN-02·03, BM-05: 방문 기록, 보조 메뉴(고정·삭제), 5초 실행 취소
+- [x] OPEN-02·03, BM-05: 방문 기록, 보조 메뉴(고정·삭제), 5초 실행 취소
   - [x] 설계·문서 먼저 (2026-09-25): 03-api.md(`source` 응답 필드, visit uuid면 204·형식 오류면 404, **서버가 동기화분 삭제를 막지 않는 이유**), 01-spec.md '열기와 보조 메뉴 규칙', 04-design.md 실행 취소 버튼
     - 결정: 크롬에서 온 북마크는 삭제를 막고 이유 표시(되살아날 것을 지우면 방문 기록만 영구히 사라진다), '수정'은 SCR-04 때, 실행 취소는 상태바, 네이티브 메뉴, 삭제 금지는 앱 화면에서만(보안 규칙이 아니라 안내)
   - [x] API: `source` 응답 필드, `POST /bookmarks/:id/visit` — 테스트 + 실제 HTTP
@@ -327,25 +327,39 @@
     - [x] 실제 DB 통합 테스트 2개 추가(API 전체 151 통과): 방문 2번 → click_count 2·last_visited_at·visit_logs 2행, 남의 것(가짜 사용자 B)·없는 id는 조용히 변화 없음, 추가한 것은 `source: manual`
     - [x] 실제 토큰 HTTP(로컬 API, 테스트 계정): 목록 111개 모두 `source`(`app_sync` 111), manual 추가 → `source: manual`, visit 2번 204 → clickCount 2, 형식 오류 id 404, 없는 uuid 204(변화 없음), 토큰 없음 401. 남의 북마크는 계정이 하나라 HTTP로는 못 했고 DB 테스트로 확인
     - 정리: 확인용 manual 북마크 삭제(목록 111로 원복), 테스트 세션 로그아웃
-  - [ ] IPC: `recordVisit`·`setPinned`·`deleteBookmark`·`showTileMenu` (메인에서 uuid 확인) — **코드·단위 테스트까지 됨, 실제 앱 확인 전**
-    - 됨: `api-client.ts`의 `isBookmarkId`·`postVisit`·`patchPinned`·`deleteBookmarkById`(uuid가 아니면 요청 0건), `tile-menu.ts`(항목 결정·입력 검사, 순수 함수), `index.ts`의 IPC 4개와 `showTileMenu`(Menu.popup, 닫힘 콜백이 click보다 먼저 올 수 있어 100ms 뒤 null), preload 4개
-    - 단위 테스트: desktop 177 통과(uuid 아닌 id 4종 × 3함수 요청 0건, 메서드·경로·본문, 401 재시도, 메뉴 항목: manual 삭제 가능·app_sync/ext_sync 삭제 비활성 + 이유 줄·html_import 삭제 가능, 입력 검사)
-  - [ ] 화면: 메뉴, 낙관적 고정, 삭제 대기·실행 취소 — **hook만 만들었고 화면에 아직 안 붙였다**
-    - 됨(연결 전): `lib/queries.ts`의 `usePinMutation`(낙관적, 실패 시 그 항목만 되돌림, 성공 시 응답으로 교체)·`orderLikeServer`(고정 풀면 제자리로 가게 서버와 같은 순서로 다시 정렬), `lib/use-pending-delete.ts`(5초 대기, 숨김 집합, 다음 삭제 시 앞의 것 즉시 전송, 화면이 사라지면 보내지 않음)
-    - 남은 것(이 순서로):
-      1. `BookmarkTile`에 `onContextMenu`(preventDefault, 키보드로 열면 타일 아래 좌표 — Shift+F10 때 이벤트 좌표가 어떻게 오는지 실제로 확인 필요) → `BookmarkGrid`로 `onMenu`·숨김 id 전달
-      2. `HomeScreen`: 열기 성공 뒤 `recordVisit`, 메뉴 선택 처리, `usePinMutation`·`usePendingDelete` 연결, `openFailed`를 일반 `notice`로
-      3. `StatusBar`: 메시지에 선택 버튼(`action`) — 삭제 대기가 가장 먼저 보이게(동기화 중에도 실행 취소를 누를 수 있게), CSS `.statusbar-action`(04-design.md에 적은 글자 버튼 모양)
-      4. 삭제 hook 단위 테스트는 없다(React hook이라 지금 테스트 도구로 못 돌림) → 실제 앱 확인으로 대신
-  - [ ] 실제 앱 확인: 클릭 → click_count·visit_logs 증가, 고정/해제와 실패 시 되돌림, 삭제 → 실행 취소 / 5초 뒤 전송, 5초 안에 다시 불러와도 안 보임, 동기화분 삭제 비활성·안내, 키보드 메뉴, 정리
+  - [x] IPC: `recordVisit`·`setPinned`·`deleteBookmark`·`showTileMenu` (메인에서 uuid 확인) — 아래 실제 앱 확인으로 동작 확인
+    - `api-client.ts`의 `isBookmarkId`·`postVisit`·`patchPinned`·`deleteBookmarkById`(uuid가 아니면 요청 0건), `tile-menu.ts`(항목 결정·입력 검사, 순수 함수), `index.ts`의 IPC 4개와 `showTileMenu`(Menu.popup, 닫힘 콜백이 click보다 먼저 올 수 있어 100ms 뒤 null), preload 4개
+  - [x] 화면 연결 (2026-09-25)
+    - `BookmarkTile`: `onContextMenu`(preventDefault). 직전 keydown이 Shift+F10·ContextMenu면 키보드로 보고 타일 왼쪽 아래 좌표, 마우스면 좌표 없음. `BookmarkGrid`: `onMenu`·숨김 id
+    - `HomeScreen`: 열기 성공 뒤 `recordVisit`, 메뉴 선택 → `usePinMutation`·`usePendingDelete`, `openFailed` → 일반 `notice`(열기·고정 성공, 삭제 시작 때 지움)
+    - `StatusBar`: 문구 옆 선택 버튼(`action`), 삭제 대기가 가장 먼저(동기화 중에도 실행 취소 가능), CSS `.statusbar-action`
+    - typecheck 전체, desktop 테스트 181개 통과(`orderLikeServer` 4개 추가)
+  - [x] 목록 순서 버그 수정: 추가 시각이 같은 북마크(크롬 샘플 10개 등)가 요청마다·방문 뒤 자리를 바꿨다 → `03-api.md`에 '같으면 `id` 오름차순' 먼저 적고 서버 `orderBy`와 앱 `orderLikeServer`(→ `lib/order.ts`로 이동)에 같은 규칙
+    - API 실제 DB 테스트 1개 추가(같은 시각 4개를 방문해 행이 다시 쓰여도 순서 유지). 끊는 기준을 빼면 이 테스트가 실패하는 것 확인
+    - 실제 앱에서 목록 5번 연속 같은 순서
+  - [x] 실제 앱 확인 (테스트 계정, 로컬 API + 운영 DB, 확인용 manual 북마크 A·B·C를 DB에 직접 넣어 사용. 입력은 사람이, 기록은 CDP로 렌더러 console·DOM, 메뉴는 열리면 자동 캡처)
+    - [x] OPEN-02: 클릭 수만큼 `click_count`·`visit_logs` 증가(A 1, B 16. 사람이 누른 횟수와 일치)
+    - [x] 키보드 메뉴: Shift+F10 → 판별 `keyboard: true`(`button` -1), Chromium 이벤트 좌표는 **타일 한가운데**, 메뉴는 타일 아래 테두리 밑 왼쪽 끝(캡처로 좌표 일치). 우클릭은 포인터 자리. 메뉴 키는 확인 못 함
+    - [x] 고정/해제: 마우스·키보드(↓·Enter) 고정 → '고정됨' 유지, 해제 → '최근 추가순' 원래 자리. `PATCH` 200 ×3, DB 반영
+    - [x] 고정 실패 시 되돌림: 메모리 부족 뒤 API 개발 서버 워커가 죽어 `PATCH`가 500(Next.js `Jest worker` 오류, 우리 코드 전) → 4번 모두 올라갔다 되돌아가고 '고정하지 못했습니다'. 서버 재시작 뒤 정상
+      - 이때 찾은 버그: 고정이 성공해도 지난 실패 문구가 남음 → 성공·삭제 시작 때 지우게 고침
+    - [x] 삭제: 실행 취소 → `DELETE` 없이 복귀 / 5초 뒤 `DELETE` 204 / 지우는 중 동기화·목록 GET이 먼저 와도 계속 숨김, 상태바는 삭제 문구·실행 취소 유지 / API를 끄고 삭제 → 5초 뒤 되살아나고 '삭제하지 못했습니다'
+    - [x] 동기화분(`app_sync`) 메뉴: '삭제' 비활성 + "크롬에서 지우면 다음 동기화 때 사라집니다"
+    - [x] 정리: 확인용 A·B·C를 앱에서 삭제(방문 기록도 함께), DB 북마크 111·manual 0·고정 0
+    - [x] 기존 북마크 `google/gemma-4-12B-it · Hugging Face`(`app_sync`)에 확인 중 실수로 쌓인 방문 1건(06:34:41, 원인 단정 못 함) → 사람이 SQL Editor로 삭제·원복, 테스트 계정 방문 기록 0건 확인
+    - [x] 키를 누르고 있을 때 메뉴가 반복해서 열리던 문제(3.4초에 27번, 메뉴 깜빡임·IPC 27회) 수정: 반복 keydown(`e.repeat`)은 `preventDefault`로 `contextmenu`를 막는다. 01-spec.md 먼저 고침
+      - 실제 확인(사람이 누름, 렌더러에 keydown·contextmenu 감시): 길게 두 번 눌러 반복 keydown 104회 → `contextmenu`는 누를 때마다 1번(합 3번, 짧게 누른 것 포함). 사람 눈에도 한 번 뜨고 깜빡이지 않음. 짧게 누르면 전처럼 타일 아래
+      - 남는 동작: 길게 누르면 메뉴가 뜬 뒤 첫 반복(약 0.5초 뒤) F10에 Windows가 메뉴를 닫는다(1.6초 뒤 캡처에 메뉴 없음, 이후 반복은 렌더러로 옴). 다시 열리지는 않는다
+    - 참고: 이번 확인 중 로컬 API 응답이 예전보다 느렸다(목록 약 140ms → 약 1초, JWKS 가져오기 시간 초과로 500 1회). 8주차 동기화 느려짐 항목과 함께 본다
 - [ ] SCR-04: 추가·수정 모달 (메타데이터 자동 채움, 중복 확인)
   - [ ] CSP img-src 재검토 (/metadata가 사이트 자체 호스트의 iconUrl을 주면 막힌다)
-- [ ] 낙관적 업데이트: 고정은 OPEN-03에서, 수정·추가는 SCR-04에서
+- [ ] 낙관적 업데이트: 고정은 OPEN-03에서(완료), 수정·추가는 SCR-04에서
 
 ## 7주차 — 검색·정렬
 
 - [ ] SEARCH-01: 실시간 검색
 - [ ] SEARCH-04: 정렬 5종 (visits_30d는 서버 집계)
+  - [ ] 고정(BM-07)은 어떤 정렬에서도 맨 앞 — BM-07에서 남은 유일한 부분
 - [ ] SEARCH-05: 정렬 설정 저장
 - [ ] SET-01: 열기 방식
 - [ ] SCR-05 설정 화면 (크롬 프로필, API 토큰 발급 등)
@@ -360,6 +374,9 @@
   - [ ] `apps/desktop/.env.production`에 배포 주소 넣기 (localhost가 박힌 설치 파일 방지)
 - [ ] E2E 테스트 (로그인 → 동기화 → 검색 → 열기)
 - [ ] 보안 점검 (타인 데이터, SSRF, 위험 URL, 토큰 노출, Electron 설정)
+- [ ] `sync.test.ts` 5,000개 동기화 느려짐 확인 (2026-09-25 발견, 성능 확인 때 함께)
+  - 첫 동기화 1.4초 → 약 80초(기준 15초로 실패), 변화 없음 0.45초 → 34초. 원인 미확인. 그때 DB `select 1`은 9~16ms로 정상
+  - 실패하면 `afterAll`도 시간 초과가 나서 **가짜 사용자(`sync-test-…@example.com`)와 북마크가 운영 DB에 남는다**(이번에 2명·5,010개, 사람이 SQL Editor로 삭제). 원인을 찾기 전에는 이 테스트를 돌리지 않는다
 - [ ] README 정리
 - [ ] 다른 PC에 설치해 사용
 - [ ] 8주 회고 기록
@@ -367,7 +384,7 @@
 ## 9~11주차 — v1.1
 
 - [ ] GROUP-01~02 그룹·탭
-- [ ] BM-07 고정, BM-08 태그
+- [ ] BM-08 태그 (BM-07 고정은 6주차 OPEN-03 + 7주차 SEARCH-04로 옮김)
 - [ ] SEARCH-06 드래그 정렬
 - [ ] SEARCH-02 초성 검색, SEARCH-03 단축키
 - [ ] DESK-05 트레이, DESK-06 전역 단축키

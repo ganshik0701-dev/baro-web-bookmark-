@@ -3,10 +3,17 @@ import { useEffect, useState } from 'react'
 import { relativeTime } from '../lib/relative-time'
 import type { SyncState } from '../types'
 
+export type StatusMessage = {
+  text: string
+  error: boolean
+  /** 문구 옆 글자 버튼(삭제 '실행 취소') */
+  action?: { label: string; onClick: () => void }
+}
+
 type Props = {
   sync: SyncState | null
   /** 오른쪽에 띄울 문구. 없으면 비워 둔다 */
-  message: { text: string; error: boolean } | null
+  message: StatusMessage | null
 }
 
 /** '3분 전'이 멈춰 있지 않게 30초마다 다시 그린다 */
@@ -28,9 +35,16 @@ export default function StatusBar({ sync, message }: Props) {
   return (
     <footer className="statusbar">
       <span className="statusbar-info">{parts.join(' · ')}</span>
-      {/* 비어 있어도 자리를 둔다(나중에 들어온 문구를 스크린리더가 읽게) */}
-      <span role="status" className={`statusbar-message${message?.error ? ' is-error' : ''}`}>
-        {message?.text}
+      <span className="statusbar-right">
+        {/* 비어 있어도 자리를 둔다(나중에 들어온 문구를 스크린리더가 읽게) */}
+        <span role="status" className={`statusbar-message${message?.error ? ' is-error' : ''}`}>
+          {message?.text}
+        </span>
+        {message?.action && (
+          <button type="button" className="statusbar-action" onClick={message.action.onClick}>
+            {message.action.label}
+          </button>
+        )}
       </span>
     </footer>
   )

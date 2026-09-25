@@ -4,8 +4,10 @@ import { useCallback, useEffect, useState } from 'react'
 import type { AuthSession, AuthStatus, Bookmark } from '@baro/shared'
 import AccountMenu from '../components/AccountMenu'
 import BookmarkGrid from '../components/BookmarkGrid'
-import StatusBar from '../components/StatusBar'
-import { useBookmarks } from '../lib/queries'
+import StatusBar, { type StatusMessage } from '../components/StatusBar'
+import { usePinMutation, useBookmarks } from '../lib/queries'
+import { tileLabel } from '../lib/tile'
+import { usePendingDelete } from '../lib/use-pending-delete'
 import type { SyncState } from '../types'
 import { useScreenTitle } from './use-screen-title'
 
@@ -32,27 +34,59 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
   const headingRef = useScreenTitle('바로')
   const list = useBookmarks()
   const showLoading = useDelayed(list.isPending, 300)
-  const [openFailed, setOpenFailed] = useState(false)
+  // 열기·고정·삭제 실패 문구. 다음에 열기·고정이 성공하거나 삭제를 시작하면 지운다(지난 실패가 남아 있지 않게)
+  const [notice, setNotice] = useState<string | null>(null)
+  const pin = usePinMutation()
+  const deletion = usePendingDelete({ onFailed: () => setNotice('삭제하지 못했습니다') })
 
   const syncing = sync?.phase === 'syncing' || sync?.phase === 'needs_confirm'
 
   // OPEN-01. 기본 브라우저로 연다. 주소 검사(http/https만)는 메인이 한다.
-  // 방문 기록(OPEN-02)은 다음 단계에서 이 뒤에 붙는다(열기를 먼저 하고 기록은 뒤에서)
+  // 열기에 성공한 뒤에만 방문을 기록한다(OPEN-02). 기록 실패는 알리지 않고, 목록도 다시 받지 않는다
   const open = useCallback((b: Bookmark) => {
     window.baro.openExternal(b.url).then(
-      () => setOpenFailed(false),
-      () => setOpenFailed(true)
+      () => {
+        setNotice(null)
+        void window.baro.recordVisit(b.id)
+      },
+      () => setNotice('브라우저를 열지 못했습니다')
     )
   }, [])
 
-  // 상태바 오른쪽에는 가장 급한 것 하나만
+  // OPEN-03. 메뉴는 메인이 네이티브로 띄우고 고른 항목 이름만 돌려준다. 요청은 여기서 항목별로 한다
+  const { mutate: mutatePin } = pin
+  const { start: startDelete } = deletion
+  const openMenu = useCallback(
+    async (b: Bookmark, at: { x: number; y: number } | null) => {
+      const choice = await window.baro.showTileMenu({ isPinned: b.isPinned, source: b.source, ...at })
+      if (choice === 'pin' || choice === 'unpin') {
+        mutatePin(
+          { id: b.id, pinned: choice === 'pin' },
+          { onSuccess: () => setNotice(null), onError: () => setNotice('고정하지 못했습니다') }
+        )
+      } else if (choice === 'delete') {
+        setNotice(null)
+        startDelete(b)
+      }
+    },
+    [mutatePin, startDelete]
+  )
+
+  // 상태바 오른쪽에는 가장 급한 것 하나만.
+  // 삭제 대기가 맨 먼저다: 5초 안에만 누를 수 있으므로 동기화 중에도 '실행 취소'가 보여야 한다
   const refreshFailing = lastAttempt?.kind === 'refresh' && !lastAttempt.ok
-  const message = syncing
+  const message: StatusMessage | null = deletion.pending
+    ? {
+        text: `‘${tileLabel(deletion.pending.title, deletion.pending.url)}’을(를) 지웠습니다`,
+        error: false,
+        action: { label: '실행 취소', onClick: deletion.undo }
+      }
+    : syncing
     ? { text: sync?.phase === 'needs_confirm' ? '삭제 확인을 기다리는 중' : '동기화하는 중…', error: false }
     : sync?.phase === 'error' && sync.error
       ? { text: `동기화 실패 · ${sync.error.message}`, error: true }
-      : openFailed
-        ? { text: '브라우저를 열지 못했습니다', error: true }
+      : notice
+        ? { text: notice, error: true }
         : list.isError && list.data
           ? { text: `목록을 새로 고치지 못했습니다 · ${list.error.message}`, error: true }
           : refreshFailing
@@ -83,7 +117,7 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
       <main className="home-main">
         {list.data ? (
           list.data.length > 0 ? (
-            <BookmarkGrid bookmarks={list.data} onOpen={open} />
+            <BookmarkGrid bookmarks={list.data} hidden={deletion.hidden} onOpen={open} onMenu={openMenu} />
           ) : (
             <div className="home-state">
               <p>아직 북마크가 없습니다. 크롬 북마크를 가져오려면 동기화하세요.</p>
