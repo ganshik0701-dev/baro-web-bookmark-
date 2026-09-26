@@ -1,12 +1,13 @@
 // SCR-03 메인 그리드 (docs/01-spec.md '메인 그리드 규칙', 시안 project/Main.dc.html).
 // 이번 구성: 상단바(동기화·계정) + 그리드 + 상태바. 검색·정렬·추가·그룹 탭은 해당 기능 때 붙인다.
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { AuthSession, AuthStatus, Bookmark } from '@baro/shared'
 import AccountMenu from '../components/AccountMenu'
 import BookmarkModal, { type BookmarkModalMode } from '../components/BookmarkModal'
 import BookmarkGrid from '../components/BookmarkGrid'
 import StatusBar, { type StatusMessage } from '../components/StatusBar'
 import { usePinMutation, useBookmarks } from '../lib/queries'
+import { buildSearchIndex, filterBookmarks, searchTerms } from '../lib/search'
 import { tileLabel } from '../lib/tile'
 import { usePendingDelete } from '../lib/use-pending-delete'
 import type { SyncState } from '../types'
@@ -39,6 +40,21 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
   const [notice, setNotice] = useState<string | null>(null)
   const pin = usePinMutation()
   const deletion = usePendingDelete({ onFailed: () => setNotice('삭제하지 못했습니다') })
+
+  // SEARCH-01. 입력칸은 바로 바뀌고, 그리드는 useDeferredValue로 뒤따른다(디바운스 없음).
+  // 비교할 글자는 목록이 바뀔 때만 만든다
+  const [query, setQuery] = useState('')
+  const searchInput = useRef<HTMLInputElement>(null)
+  const deferredQuery = useDeferredValue(query)
+  const terms = useMemo(() => searchTerms(deferredQuery), [deferredQuery])
+  const searchIndex = useMemo(() => buildSearchIndex(list.data ?? []), [list.data])
+  const results = useMemo(() => filterBookmarks(searchIndex, terms), [searchIndex, terms])
+  const searching = terms.length > 0
+  const noResults = searching && results.every((b) => deletion.hidden.has(b.id))
+  const clearSearch = () => {
+    setQuery('')
+    searchInput.current?.focus()
+  }
 
   // SCR-04 추가·수정 모달. 닫으면 연 버튼(또는 타일)으로 포커스를 돌려준다
   const [modal, setModal] = useState<BookmarkModalMode | null>(null)
@@ -115,6 +131,26 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
     <div className="home">
       {/* 모달이 열린 동안 뒤 화면은 inert: Tab·클릭이 닿지 않는다(보이지 않는 타일이 열리지 않게) */}
       <header className="topbar" inert={modal !== null}>
+        <label htmlFor="home-search" className="visually-hidden">
+          북마크 검색
+        </label>
+        <div className="search">
+          <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+            <circle cx="9" cy="9" r="6" />
+            <path d="M13.5 13.5L17 17" />
+          </svg>
+          <input
+            ref={searchInput}
+            id="home-search"
+            className="search-input"
+            type="search"
+            placeholder="제목이나 주소로 검색"
+            autoComplete="off"
+            spellCheck={false}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
         <h1 ref={headingRef} tabIndex={-1} className="visually-hidden">
           북마크
         </h1>
@@ -142,7 +178,22 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
       <main className="home-main" inert={modal !== null}>
         {list.data ? (
           list.data.length > 0 ? (
-            <BookmarkGrid bookmarks={list.data} hidden={deletion.hidden} onOpen={open} onMenu={openMenu} />
+            noResults ? (
+              <div className="home-state">
+                <p>‘{deferredQuery.trim()}’와 맞는 북마크가 없습니다</p>
+                <button type="button" className="button-secondary" onClick={clearSearch}>
+                  검색어 지우기
+                </button>
+              </div>
+            ) : (
+              <BookmarkGrid
+                bookmarks={results}
+                hidden={deletion.hidden}
+                searching={searching}
+                onOpen={open}
+                onMenu={openMenu}
+              />
+            )
           ) : (
             <div className="home-state">
               <p>아직 북마크가 없습니다. 크롬 북마크를 가져오려면 동기화하세요.</p>
@@ -167,7 +218,15 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
 
       <StatusBar sync={sync} message={message} inert={modal !== null} />
 
-      {modal && <BookmarkModal initial={modal} bookmarks={list.data ?? []} onOpen={open} onClose={closeModal} />}
+      {modal && (
+        <BookmarkModal
+          initial={modal}
+          bookmarks={list.data ?? []}
+          onOpen={open}
+          onAdded={() => setQuery('')}
+          onClose={closeModal}
+        />
+      )}
     </div>
   )
 }

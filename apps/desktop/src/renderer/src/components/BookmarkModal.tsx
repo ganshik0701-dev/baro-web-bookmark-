@@ -16,6 +16,8 @@ type Props = {
   bookmarks: Bookmark[]
   /** 409 '기존 북마크 열기'. 열기와 방문 기록은 HomeScreen의 열기와 같다 */
   onOpen: (bookmark: Bookmark) => void
+  /** 새로 추가했을 때(SEARCH-01: 검색어를 비워 새 타일이 보이게) */
+  onAdded?: () => void
   onClose: () => void
 }
 
@@ -34,7 +36,7 @@ type Duplicate = { existing: Bookmark | null }
 // 아이콘 미리보기는 그리드 중간 크기 타일과 같다
 const PREVIEW_STYLE = { '--tile-size': 'var(--tile-size-md)' } as CSSProperties
 
-export default function BookmarkModal({ initial, bookmarks, onOpen, onClose }: Props) {
+export default function BookmarkModal({ initial, bookmarks, onOpen, onAdded, onClose }: Props) {
   const qc = useQueryClient()
   const [mode, setMode] = useState<BookmarkModalMode>(initial)
   const editing = mode.kind === 'edit' ? mode.bookmark : null
@@ -134,6 +136,7 @@ export default function BookmarkModal({ initial, bookmarks, onOpen, onClose }: P
       if (!result) return
       if ('data' in result) {
         upsertBookmarkInCache(qc, result.data)
+        if (!editing) onAdded?.()
         onClose()
         return
       }

@@ -14,12 +14,14 @@ type Props = TileHandlers & {
   bookmarks: Bookmark[]
   /** 지우는 중(실행 취소 대기·전송 중)이라 숨길 id. 그 사이 목록을 다시 받아도 보이지 않게 한다 */
   hidden: ReadonlySet<string>
+  /** 검색 중이면 아래 섹션 이름이 '검색 결과 N개'(SEARCH-01) */
+  searching?: boolean
 }
 
 // 지금은 정렬이 하나뿐이다. SEARCH-04에서 고른 정렬의 이름이 들어온다
 const SORT_TITLE = '최근 추가순'
 
-export default function BookmarkGrid({ bookmarks, hidden, onOpen, onMenu }: Props) {
+export default function BookmarkGrid({ bookmarks, hidden, searching = false, onOpen, onMenu }: Props) {
   const layout = useGridLayout()
   const visible = hidden.size > 0 ? bookmarks.filter((b) => !hidden.has(b.id)) : bookmarks
   // 서버가 이미 고정을 앞에 두고 보내지만, 섹션은 여기서 나눈다
@@ -44,7 +46,7 @@ export default function BookmarkGrid({ bookmarks, hidden, onOpen, onMenu }: Prop
       {rest.length > 0 && (
         <section className="grid-section" aria-labelledby="grid-rest">
           <h2 id="grid-rest" className="grid-section-title">
-            {SORT_TITLE}
+            {searching ? `검색 결과 ${visible.length}개` : SORT_TITLE}
           </h2>
           <TileList bookmarks={rest} onOpen={onOpen} onMenu={onMenu} />
         </section>
