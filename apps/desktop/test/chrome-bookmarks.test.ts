@@ -21,6 +21,17 @@ afterAll(async () => {
   await rm(dir, { recursive: true, force: true })
 })
 
+/**
+ * ms 뒤에 파일을 다시 쓴다(크롬이 저장을 끝내는 흉내). 돌려준 Promise를 테스트 끝에서 꼭 기다린다.
+ * 기다리지 않으면 테스트가 먼저 끝나고(bad_root는 1ms도 안 걸린다) 쓰기가 afterAll의 폴더 삭제와 겹쳐
+ * Linux CI에서 ENOTEMPTY가 났다(2026-09-26)
+ */
+function writeLater(path: string, text: string, ms: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => writeFile(path, text, 'utf8').then(resolve, reject), ms)
+  })
+}
+
 /** 이 테스트에서만 쓰는 파일을 만든다 */
 async function write(name: string, text: string): Promise<string> {
   const path = join(dir, name)
@@ -53,15 +64,17 @@ describe('readBookmarksFile', () => {
   it('크롬이 저장을 끝내면 재시도에서 성공한다(1초 뒤 1회)', async () => {
     const path = await write('racing.json', GOOD.slice(0, 40))
     // 첫 읽기는 잘린 파일, 재시도를 기다리는 사이 크롬이 저장을 끝낸 상황을 흉내 낸다
-    setTimeout(() => void writeFile(path, GOOD, 'utf8'), 10)
+    const saved = writeLater(path, GOOD, 10)
     const r = await readBookmarksFile(path, { retryDelayMs: 50 })
+    await saved
     expect(r.ok).toBe(true)
   })
 
   it('bad_root는 재시도하지 않는다(다시 읽으면 성공할 파일이어도 실패로 끝낸다)', async () => {
     const path = await write('badroot.json', '{"roots":{"bookmark_bar":{"children":"x"}}}')
-    setTimeout(() => void writeFile(path, GOOD, 'utf8'), 10)
+    const saved = writeLater(path, GOOD, 10)
     const r = await readBookmarksFile(path, { retryDelayMs: 50 })
+    await saved
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.reason).toBe('bad_root')
   })
