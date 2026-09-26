@@ -531,6 +531,11 @@ button:focus-visible {
 
 /* ---------- 대량 삭제 확인 모달 (409) ---------- */
 
+/* 모달 뒤 화면 전체를 감싸는 칸. 대량 삭제 확인이 떠 있으면 inert가 붙는다(App.tsx) */
+.app-screen {
+  height: 100%;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

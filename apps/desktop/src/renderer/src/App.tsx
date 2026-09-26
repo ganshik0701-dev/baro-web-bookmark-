@@ -1,6 +1,6 @@
 // 로그인 상태(메인 프로세스가 알려 줌)를 보고 화면을 고른다.
 //   확인 중 → Loading / 세션 있음 → (첫 동기화 전이면 SCR-02) SCR-03 메인 그리드 / 그 밖 → SCR-01 로그인
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { AuthStatus } from '@baro/shared'
 import type { SyncState } from './types'
@@ -82,6 +82,24 @@ export default function App() {
     }
   }
 
+  // 대량 삭제 확인 모달이 떠 있는지. 닫히면(inert가 풀린 뒤) 떠 있기 전 포커스로 돌려준다.
+  // 모달은 뜨자마자 '취소'에 포커스를 두는데 자식의 effect가 먼저 돌아서, 뜬 뒤에 activeElement를 읽으면 이미 늦다.
+  // 그래서 모달 밖에서 마지막으로 포커스를 받은 요소를 늘 기억해 둔다
+  const confirming = sync?.phase === 'needs_confirm' && Boolean(sync.confirm)
+  const lastFocusOutside = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    const onFocusIn = (e: FocusEvent) => {
+      if (e.target instanceof HTMLElement && !e.target.closest('.modal-backdrop')) lastFocusOutside.current = e.target
+    }
+    document.addEventListener('focusin', onFocusIn)
+    return () => document.removeEventListener('focusin', onFocusIn)
+  }, [])
+  const wasConfirming = useRef(false)
+  useEffect(() => {
+    if (wasConfirming.current && !confirming && lastFocusOutside.current?.isConnected) lastFocusOutside.current.focus()
+    wasConfirming.current = confirming
+  }, [confirming])
+
   // 메인 프로세스는 창을 띄우기 전에 restoring=true로 둔다. 그래서 로그인된 사용자에게
   // 로그인 화면이 잠깐 보였다 사라지는 일이 없다
   function screen() {
@@ -119,10 +137,13 @@ export default function App() {
 
   // 대량 삭제 확인은 어느 화면 위에도 떠야 한다. 자동 동기화는 홈에서도 일어나고,
   // 그때 모달이 뜨지 않으면 메인 프로세스가 답을 영원히 기다린다(DESK-03)
+  // 떠 있는 동안 뒤 화면 전체는 inert(Tab·클릭이 닿지 않게. SCR-04 모달과 같은 이유)
   return (
     <>
-      {screen()}
-      {sync?.phase === 'needs_confirm' && sync.confirm && <MassDeleteModal details={sync.confirm} />}
+      <div className="app-screen" inert={confirming}>
+        {screen()}
+      </div>
+      {confirming && sync?.confirm && <MassDeleteModal details={sync.confirm} />}
     </>
   )
 }
