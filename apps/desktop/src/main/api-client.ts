@@ -1,7 +1,7 @@
 // 인증이 필요한 API 호출의 공통 부분 (메인 프로세스 전용).
 // electron을 import하지 않고 의존성을 주입받는다 → 가짜 fetch로 테스트한다(test/api-client.test.ts).
 // 토큰은 여기서 헤더에 붙이기만 하고 돌려주지 않는다.
-import { createBookmarkInput, httpUrl, updateBookmarkInput, type ApiFailure, type Bookmark } from '@baro/shared'
+import { createBookmarkInput, httpUrl, updateBookmarkInput, updateMeInput, type ApiFailure, type Bookmark } from '@baro/shared'
 
 export type ApiDeps = {
   /** 유효한 액세스 토큰. 만료가 가까우면 이 함수가 먼저 갱신한다 */
@@ -185,6 +185,29 @@ export async function getMetadata(deps: ApiDeps, rawUrl: unknown): Promise<Metad
 export async function deleteBookmarkById(deps: ApiDeps, id: unknown): Promise<DoneResult> {
   if (!isBookmarkId(id)) return INVALID_ID
   const r = await authedFetch(deps, `/bookmarks/${id}`, { method: 'DELETE', timeoutMs: 10_000 })
+  if (r.kind === 'error') return { error: { code: r.code, message: r.message } }
+  return r.res.ok ? { ok: true } : failureOf(r.res)
+}
+
+// ─── 정렬 저장·복원 (SEARCH-05) ────────────────────────────────────────
+/** 저장된 정렬(DB 값 그대로. custom일 수도 있어 문자열). 렌더러가 모르는 값을 최근 추가순으로 보여준다 */
+export type SortSettingResult = { data: { sortOption: string } } | ApiFailure
+
+/** GET /me에서 정렬만 꺼낸다. 켤 때 한 번 부른다 */
+export async function getSortSetting(deps: ApiDeps): Promise<SortSettingResult> {
+  const r = await authedFetch(deps, '/me', { timeoutMs: 10_000 })
+  if (r.kind === 'error') return { error: { code: r.code, message: r.message } }
+  if (!r.res.ok) return failureOf(r.res)
+  const body = (await r.res.json().catch(() => null)) as { data?: { sortOption?: unknown } } | null
+  const v = body?.data?.sortOption
+  return typeof v === 'string' ? { data: { sortOption: v } } : { error: { code: `HTTP_${r.res.status}`, message: '응답을 읽지 못했습니다' } }
+}
+
+/** PATCH /me { sortOption }. 값은 shared 스키마(4종)로 다시 검사하고, 틀리면 요청하지 않는다 */
+export async function patchSortSetting(deps: ApiDeps, value: unknown): Promise<DoneResult> {
+  const parsed = updateMeInput.safeParse({ sortOption: value })
+  if (!parsed.success) return invalidInput(parsed.error.issues[0]?.message)
+  const r = await authedFetch(deps, '/me', { method: 'PATCH', body: JSON.stringify(parsed.data), timeoutMs: 10_000 })
   if (r.kind === 'error') return { error: { code: r.code, message: r.message } }
   return r.res.ok ? { ok: true } : failureOf(r.res)
 }

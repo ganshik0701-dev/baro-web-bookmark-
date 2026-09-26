@@ -6,8 +6,9 @@ import AccountMenu from '../components/AccountMenu'
 import BookmarkModal, { type BookmarkModalMode } from '../components/BookmarkModal'
 import BookmarkGrid from '../components/BookmarkGrid'
 import StatusBar, { type StatusMessage } from '../components/StatusBar'
-import { usePinMutation, useBookmarks } from '../lib/queries'
-import { SORT_LABELS, SORT_OPTIONS, sortBookmarks, type SortOption } from '../lib/order'
+import { usePinMutation, useBookmarks, useSortSetting } from '../lib/queries'
+import { useSortSaver } from '../lib/use-sort-saver'
+import { SORT_LABELS, SORT_OPTIONS, sortBookmarks, toSortOption, type SortOption } from '../lib/order'
 import { buildSearchIndex, filterBookmarks, searchTerms } from '../lib/search'
 import { tileLabel } from '../lib/tile'
 import { usePendingDelete } from '../lib/use-pending-delete'
@@ -21,6 +22,9 @@ type Props = {
   waitingLogout: boolean
   onLogout: () => void
 }
+
+/** 정렬 저장 실패 문구. 다음에 저장이 성공하면 이 문구일 때만 지운다 */
+const SORT_SAVE_FAILED = '정렬을 저장하지 못했습니다'
 
 /** 불러오기가 300ms 안에 끝나면 '불러오는 중'을 띄우지 않는다(깜빡임 방지, SCR-01과 같은 규칙) */
 function useDelayed(active: boolean, ms: number): boolean {
@@ -36,7 +40,9 @@ function useDelayed(active: boolean, ms: number): boolean {
 export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, onLogout }: Props) {
   const headingRef = useScreenTitle('바로')
   const list = useBookmarks()
-  const showLoading = useDelayed(list.isPending, 300)
+  const sortSetting = useSortSetting()
+  // 목록과 저장된 정렬(SEARCH-05)이 둘 다 와야 그린다. 최근 추가순으로 먼저 그렸다가 뒤섞이지 않게
+  const showLoading = useDelayed(list.isPending || sortSetting.isPending, 300)
   // 열기·고정·삭제 실패 문구. 다음에 열기·고정이 성공하거나 삭제를 시작하면 지운다(지난 실패가 남아 있지 않게)
   const [notice, setNotice] = useState<string | null>(null)
   const pin = usePinMutation()
@@ -50,8 +56,17 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
   const terms = useMemo(() => searchTerms(deferredQuery), [deferredQuery])
   const searchIndex = useMemo(() => buildSearchIndex(list.data ?? []), [list.data])
   // SEARCH-04. 캐시는 서버 기본 순서 그대로 두고, 화면에 그릴 때만 고른 정렬로 다시 센다(거른 뒤 정렬).
-  // 저장·복원(SEARCH-05) 전이라 켜면 최근 추가순
-  const [sort, setSort] = useState<SortOption>('created_desc')
+  // SEARCH-05. 켤 때 저장된 정렬로 시작한다(custom·모르는 값·불러오기 실패면 최근 추가순, 서버 값은 덮어쓰지 않음).
+  // 고르면 화면은 바로 바뀌고 저장은 뒤에서(useSortSaver). 실패해도 이번 실행 동안은 고른 정렬 그대로
+  const [chosenSort, setChosenSort] = useState<SortOption | null>(null)
+  const sort: SortOption = chosenSort ?? toSortOption(sortSetting.data)
+  const saveSort = useSortSaver((saved) =>
+    setNotice((n) => (saved ? (n === SORT_SAVE_FAILED ? null : n) : SORT_SAVE_FAILED))
+  )
+  const chooseSort = (value: SortOption) => {
+    setChosenSort(value)
+    saveSort(value)
+  }
   const results = useMemo(() => sortBookmarks(filterBookmarks(searchIndex, terms), sort), [searchIndex, terms, sort])
   const searching = terms.length > 0
   const noResults = searching && results.every((b) => deletion.hidden.has(b.id))
@@ -159,7 +174,7 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
           className="sort-select"
           aria-label="정렬 기준"
           value={sort}
-          onChange={(e) => setSort(e.target.value as SortOption)}
+          onChange={(e) => chooseSort(e.target.value as SortOption)}
         >
           {SORT_OPTIONS.map((o) => (
             <option key={o} value={o}>
@@ -192,7 +207,7 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
       </header>
 
       <main className="home-main" inert={modal !== null}>
-        {list.data ? (
+        {list.data && !sortSetting.isPending ? (
           list.data.length > 0 ? (
             noResults ? (
               <div className="home-state">

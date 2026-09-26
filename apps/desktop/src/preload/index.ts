@@ -2,7 +2,14 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type { ApiFailure, ApiSuccess, AuthStatus, BookmarkSource, HealthResponse } from '@baro/shared'
 // 타입만 가져온다(번들에 메인 코드가 들어가지 않는다)
 import type { ChromeProfile } from '../main/chrome-profiles'
-import type { BookmarkFields, BookmarkListResult, BookmarkResult, DoneResult, MetadataResult } from '../main/api-client'
+import type {
+  BookmarkFields,
+  BookmarkListResult,
+  BookmarkResult,
+  DoneResult,
+  MetadataResult,
+  SortSettingResult
+} from '../main/api-client'
 import type { TileMenuChoice } from '../main/tile-menu'
 import type { ChromeReadResult, ChromeSelection } from '../main/chrome-selection'
 import type { SyncState } from '../main/sync'
@@ -54,6 +61,9 @@ const api = {
     ipcRenderer.invoke('bookmarks:update', id, fields),
   // SCR-04 제목·아이콘 자동 채움. 주소 하나만 받고, 메인이 httpUrl로 다시 검사한다
   fetchMetadata: (url: string): Promise<MetadataResult> => ipcRenderer.invoke('metadata:fetch', url),
+  // SEARCH-05. 켤 때 저장된 정렬(인자 없음), 바꿀 때 저장(값 하나)
+  getSortOption: (): Promise<SortSettingResult> => ipcRenderer.invoke('settings:getSort'),
+  saveSortOption: (value: string): Promise<DoneResult> => ipcRenderer.invoke('settings:saveSort', value),
   // OPEN-03. 네이티브 보조 메뉴. 고른 항목 이름만 온다(안 고르면 null). x·y는 키보드로 열 때 타일 아래 좌표
   showTileMenu: (input: { isPinned: boolean; source: BookmarkSource; x?: number; y?: number }): Promise<TileMenuChoice | null> =>
     ipcRenderer.invoke('bookmarks:menu', input),

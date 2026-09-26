@@ -6,9 +6,11 @@ import {
   deleteBookmarkById,
   fetchBookmarks,
   getMetadata,
+  getSortSetting,
   isBookmarkId,
   patchBookmark,
   patchPinned,
+  patchSortSetting,
   postBookmark,
   postVisit,
   type ApiDeps
@@ -277,5 +279,26 @@ describe('추가·수정·제목 자동 채움 (SCR-04)', () => {
     expect(await getMetadata(s.deps, 'javascript:x')).toMatchObject({ error: { code: 'INVALID_INPUT' } })
     expect(s.sent).toHaveLength(0)
     expect(await getMetadata(s.deps, 'example.com')).toMatchObject({ error: { code: 'METADATA_FETCH_FAILED' } })
+  })
+})
+
+describe('정렬 저장·복원 (SEARCH-05)', () => {
+  it('저장된 정렬: GET /me에서 sortOption만 꺼낸다(custom도 그대로)', async () => {
+    const s = setup([{ status: 200, body: { data: { sortOption: 'custom', email: 'x' } } }])
+    expect(await getSortSetting(s.deps)).toEqual({ data: { sortOption: 'custom' } })
+    expect(s.sent[0]).toMatchObject({ url: 'http://api.test/api/v1/me', method: 'GET' })
+  })
+
+  it('저장: PATCH /me에 sortOption 하나만', async () => {
+    const s = setup([{ status: 200, body: { data: {} } }])
+    expect(await patchSortSetting(s.deps, 'visits_30d')).toEqual({ ok: true })
+    expect(s.sent[0]).toMatchObject({ url: 'http://api.test/api/v1/me', method: 'PATCH' })
+    expect(JSON.parse(s.sent[0].body as string)).toEqual({ sortOption: 'visits_30d' })
+  })
+
+  it.each(['custom', 'hacked', 1, null])('저장: 4종이 아니면 요청 0건 (%j)', async (value) => {
+    const s = setup([])
+    expect(await patchSortSetting(s.deps, value)).toMatchObject({ error: { code: 'INVALID_INPUT' } })
+    expect(s.sent).toHaveLength(0)
   })
 })

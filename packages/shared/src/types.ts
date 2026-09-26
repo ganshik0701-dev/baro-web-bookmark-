@@ -1,3 +1,4 @@
+/** profiles.sort_option에 저장될 수 있는 값 전부. 고를 수 있는 것은 me.ts의 SELECTABLE_SORTS(custom 제외) */
 export const SORT_OPTIONS = [
   'created_desc',
   'visits_30d',

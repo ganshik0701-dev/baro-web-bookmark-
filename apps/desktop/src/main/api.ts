@@ -4,7 +4,9 @@ import {
   deleteBookmarkById,
   fetchBookmarks,
   getMetadata,
+  getSortSetting,
   patchBookmark,
+  patchSortSetting,
   patchPinned,
   postBookmark,
   postVisit,
@@ -12,7 +14,8 @@ import {
   type BookmarkListResult,
   type BookmarkResult,
   type DoneResult,
-  type MetadataResult
+  type MetadataResult,
+  type SortSettingResult
 } from './api-client'
 import { forceRefresh, getAccessToken } from './auth'
 
@@ -40,6 +43,10 @@ export const deleteBookmark = (id: unknown): Promise<DoneResult> => deleteBookma
 export const createBookmark = (raw: unknown): Promise<BookmarkResult> => postBookmark(apiDeps, raw)
 export const updateBookmark = (id: unknown, raw: unknown): Promise<BookmarkResult> => patchBookmark(apiDeps, id, raw)
 export const fetchMetadata = (url: unknown): Promise<MetadataResult> => getMetadata(apiDeps, url)
+
+/** SEARCH-05 정렬 저장·복원. 값 검사는 api-client가 shared 스키마로 한다 */
+export const getSortOption = (): Promise<SortSettingResult> => getSortSetting(apiDeps)
+export const saveSortOption = (value: unknown): Promise<DoneResult> => patchSortSetting(apiDeps, value)
 
 /**
  * GET /me의 필요한 부분만. 실패하면 null(프로필 복원은 없으면 없는 대로 넘어간다).

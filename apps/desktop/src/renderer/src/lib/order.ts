@@ -1,11 +1,11 @@
 // 목록 순서 (docs/01-spec.md '정렬 규칙', docs/03-api.md GET /bookmarks). 순수 함수라 단위 테스트로 확인한다.
 // 정렬은 앱 한 곳(여기)에서만 한다. 서버는 기본 순서(최근 추가순) 하나만 돌려준다.
-import type { Bookmark } from '@baro/shared'
+import { SELECTABLE_SORTS, type Bookmark, type SelectableSort } from '@baro/shared'
 import { tileLabel } from './tile'
 
-/** 드롭다운에 두는 정렬. custom(사용자 지정)은 드래그(SEARCH-06)와 함께 붙인다 */
-export const SORT_OPTIONS = ['created_desc', 'visits_30d', 'visited_desc', 'title_asc'] as const
-export type SortOption = (typeof SORT_OPTIONS)[number]
+/** 드롭다운에 두는 정렬(서버 PATCH /me와 같은 4종). custom(사용자 지정)은 드래그(SEARCH-06)와 함께 붙인다 */
+export const SORT_OPTIONS = SELECTABLE_SORTS
+export type SortOption = SelectableSort
 
 /** 드롭다운 문구와 섹션 이름 (시안 메인 보드) */
 export const SORT_LABELS: Record<SortOption, { option: string; section: string }> = {

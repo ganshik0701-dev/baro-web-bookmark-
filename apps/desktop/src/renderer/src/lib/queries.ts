@@ -41,6 +41,23 @@ focusManager.setEventListener((setFocused) => {
   }
 })
 
+/**
+ * SEARCH-05 저장된 정렬. 켤 때(와 로그인할 때) 한 번만 받는다: 창 포커스로 다시 받아 방금 고른 정렬이
+ * 다른 PC 값으로 바뀌지 않게. 로그아웃하면 다른 캐시와 함께 비워진다
+ */
+export function useSortSetting() {
+  return useQuery({
+    queryKey: ['sort-setting'],
+    queryFn: async (): Promise<string> => {
+      const r = await window.baro.getSortOption()
+      if ('error' in r) throw new ApiCallError(r.error.code, r.error.message)
+      return r.data.sortOption
+    },
+    staleTime: Infinity,
+    refetchOnWindowFocus: false
+  })
+}
+
 /** GET /bookmarks. 요청은 메인이 하고, 여기는 결과를 캐시에 담기만 한다 */
 export function useBookmarks() {
   return useQuery({

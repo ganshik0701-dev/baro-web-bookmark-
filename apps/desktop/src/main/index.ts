@@ -8,8 +8,10 @@ import {
   deleteBookmark,
   fetchMe,
   fetchMetadata,
+  getSortOption,
   listBookmarks,
   recordVisit,
+  saveSortOption,
   setPinned,
   updateBookmark
 } from './api'
@@ -138,6 +140,9 @@ function registerIpc(): void {
   ipcMain.handle('bookmarks:create', (_event, raw: unknown) => createBookmark(raw))
   ipcMain.handle('bookmarks:update', (_event, id: unknown, raw: unknown) => updateBookmark(id, raw))
   ipcMain.handle('metadata:fetch', (_event, url: unknown) => fetchMetadata(url))
+  // SEARCH-05. 저장은 값 하나만 받고 메인이 4종인지 다시 검사한다
+  ipcMain.handle('settings:getSort', () => getSortOption())
+  ipcMain.handle('settings:saveSort', (_event, value: unknown) => saveSortOption(value))
   // 보조 메뉴는 OS 네이티브 메뉴로 띄우고, 고른 항목 이름만 돌려준다(요청은 렌더러가 항목별로 한다)
   ipcMain.handle('bookmarks:menu', (event, raw: unknown) =>
     showTileMenu(BrowserWindow.fromWebContents(event.sender), raw)

@@ -79,6 +79,17 @@ PKCE의 `code_verifier`는 만든 쪽이 써야 하고 앱 밖으로 나가면 �
 ```
 profiles 행이 없으면(가입 트리거가 실패한 경우 등) `401 INVALID_TOKEN`을 돌려준다. 서명은 맞지만 이 서비스의 사용자로 등록되지 않은 토큰으로 본다.
 
+## PATCH /me
+
+설정 변경. **앱 토큰만**(확장은 설정을 바꾸지 않는다). 지금은 정렬(SEARCH-05) 하나만 받고, 열기 방식(SET-01)·테마(SET-02)는 그 기능 때 칸을 더한다.
+
+```json
+{ "sortOption": "visits_30d" }
+→ 200 (GET /me와 같은 모양)
+```
+- `sortOption`: `created_desc` / `visits_30d` / `visited_desc` / `title_asc`. `custom`은 드래그(SEARCH-06) 때 허용한다(DB는 이미 5종을 받는다)
+- `packages/shared`의 `updateMeInput`(strict)으로 검사. 모르는 칸·모르는 값·빈 본문은 `400 VALIDATION_ERROR`
+
 ## GET /bookmarks
 
 쿼리: `groupId`(uuid 또는 `none`), `tag`(둘 다 v1.1 그룹·태그 때). **정렬 쿼리(`sort`)는 없다**: 정렬 4종은 앱이 받아 둔 목록으로 한다(docs/01-spec.md '정렬 규칙', 2026-09-26 결정). 서버는 아래 기본 순서 하나만 돌려준다.
