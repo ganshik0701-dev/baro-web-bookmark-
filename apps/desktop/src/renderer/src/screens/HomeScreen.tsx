@@ -7,6 +7,7 @@ import BookmarkModal, { type BookmarkModalMode } from '../components/BookmarkMod
 import BookmarkGrid from '../components/BookmarkGrid'
 import StatusBar, { type StatusMessage } from '../components/StatusBar'
 import { usePinMutation, useBookmarks } from '../lib/queries'
+import { SORT_LABELS, SORT_OPTIONS, sortBookmarks, type SortOption } from '../lib/order'
 import { buildSearchIndex, filterBookmarks, searchTerms } from '../lib/search'
 import { tileLabel } from '../lib/tile'
 import { usePendingDelete } from '../lib/use-pending-delete'
@@ -48,7 +49,10 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
   const deferredQuery = useDeferredValue(query)
   const terms = useMemo(() => searchTerms(deferredQuery), [deferredQuery])
   const searchIndex = useMemo(() => buildSearchIndex(list.data ?? []), [list.data])
-  const results = useMemo(() => filterBookmarks(searchIndex, terms), [searchIndex, terms])
+  // SEARCH-04. 캐시는 서버 기본 순서 그대로 두고, 화면에 그릴 때만 고른 정렬로 다시 센다(거른 뒤 정렬).
+  // 저장·복원(SEARCH-05) 전이라 켜면 최근 추가순
+  const [sort, setSort] = useState<SortOption>('created_desc')
+  const results = useMemo(() => sortBookmarks(filterBookmarks(searchIndex, terms), sort), [searchIndex, terms, sort])
   const searching = terms.length > 0
   const noResults = searching && results.every((b) => deletion.hidden.has(b.id))
   const clearSearch = () => {
@@ -151,6 +155,18 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
+        <select
+          className="sort-select"
+          aria-label="정렬 기준"
+          value={sort}
+          onChange={(e) => setSort(e.target.value as SortOption)}
+        >
+          {SORT_OPTIONS.map((o) => (
+            <option key={o} value={o}>
+              {SORT_LABELS[o].option}
+            </option>
+          ))}
+        </select>
         <h1 ref={headingRef} tabIndex={-1} className="visually-hidden">
           북마크
         </h1>
@@ -189,6 +205,7 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
               <BookmarkGrid
                 bookmarks={results}
                 hidden={deletion.hidden}
+                sortTitle={SORT_LABELS[sort].section}
                 searching={searching}
                 onOpen={open}
                 onMenu={openMenu}

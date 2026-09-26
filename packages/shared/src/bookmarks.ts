@@ -126,10 +126,7 @@ export const bookmarkId = z.string().uuid('북마크 id가 올바르지 않습�
 export type CreateBookmarkInput = z.infer<typeof createBookmarkInput>
 export type UpdateBookmarkInput = z.infer<typeof updateBookmarkInput>
 
-/**
- * API가 돌려주는 북마크 (camelCase, 시간은 ISO 8601 UTC).
- * recentVisits(최근 30일 방문 수)는 SEARCH-04에서 추가한다
- */
+/** API가 돌려주는 북마크 (camelCase, 시간은 ISO 8601 UTC). 목록·단건·추가·수정 응답 모두 이 모양 */
 export type Bookmark = {
   id: string
   title: string
@@ -142,6 +139,8 @@ export type Bookmark = {
   /** 어디서 왔나. 앱은 크롬에서 온 것(app_sync·ext_sync)의 삭제를 막는다(docs/01-spec.md '열기와 보조 메뉴 규칙') */
   source: BookmarkSource
   clickCount: number
+  /** 최근 30일 방문 수. '자주 방문순'(SEARCH-04)에 쓴다. 정렬은 앱이 한다(docs/01-spec.md '정렬 규칙') */
+  recentVisits: number
   lastVisitedAt: string | null
   createdAt: string
 }

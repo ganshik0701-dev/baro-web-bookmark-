@@ -174,6 +174,26 @@ describe.skipIf(!process.env.DATABASE_POOLER_URL)('bookmarks (BM-01~05)', () => 
     expect(await logs()).toBe(2)
   })
 
+  it('recentVisits(SEARCH-04): 최근 30일 방문만 세고, 목록·단건·수정·추가 응답 모두에 붙는다', async () => {
+    const v = await create(A, { url: 'https://recent-visits.example.com' })
+    // 새로 추가한 것은 0
+    expect(v.recentVisits).toBe(0)
+
+    await recordVisit(A, v.id)
+    await recordVisit(A, v.id)
+    // 40일 전 방문 1건(30일 밖): clickCount에는 없지만 visit_logs에는 있다 → recentVisits에서 빠져야 한다
+    await getRawDb().execute(sql`insert into public.visit_logs (bookmark_id, user_id, visited_at)
+      values (${v.id}, ${A.userId}, now() - interval '40 days')`)
+
+    expect((await listBookmarks(A)).find((b) => b.id === v.id)?.recentVisits).toBe(2)
+    expect((await getBookmark(A, v.id)).recentVisits).toBe(2)
+    // 수정 응답(UPDATE … RETURNING 뒤 따로 센다)도 같은 값. 앱이 이 응답으로 캐시 항목을 통째로 바꾼다
+    expect((await update(A, v.id, { isPinned: true })).recentVisits).toBe(2)
+    // 다른 북마크의 방문이 섞이지 않는다
+    const other = await create(A, { url: 'https://recent-visits-other.example.com' })
+    expect((await listBookmarks(A)).find((b) => b.id === other.id)?.recentVisits).toBe(0)
+  })
+
   it('목록: 추가 시각이 같으면 id 오름차순, 방문으로 행이 다시 쓰여도 순서가 그대로', async () => {
     const made = await Promise.all(['t1', 't2', 't3', 't4'].map((k) => create(B, { url: `https://tie-${k}.example.com` })))
     const ids = made.map((b) => b.id)

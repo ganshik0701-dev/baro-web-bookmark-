@@ -12,8 +12,25 @@ import { ApiError } from './errors'
 
 type Row = typeof bookmarks.$inferSelect
 
+/**
+ * 최근 30일 방문 수. 북마크마다 visit_logs를 세는 하위 쿼리(인덱스 idx_visit_recent (bookmark_id, visited_at DESC)).
+ * RLS가 visit_logs에도 걸려 있어 내 방문만 센다.
+ * 열 이름을 직접 쓴다: Drizzle은 select 목록 안의 ${bookmarks.id}를 테이블 없이 "id"로 써서, 하위 쿼리 안에서
+ * visit_logs.id로 읽혔다(uuid = bigint 오류로 드러남)
+ */
+const recentVisits = sql<number>`(
+  select count(*)::int from public.visit_logs v
+  where v.bookmark_id = "bookmarks"."id" and v.visited_at > now() - interval '30 days'
+)`
+
+/** 행 하나의 최근 30일 방문 수(수정 응답용. UPDATE … RETURNING에는 하위 쿼리를 붙일 수 없어 따로 센다) */
+async function countRecentVisits(tx: Tx, id: string): Promise<number> {
+  const [r] = await tx.select({ n: recentVisits }).from(bookmarks).where(eq(bookmarks.id, id))
+  return r?.n ?? 0
+}
+
 /** DB 행(snake_case, Date) → 응답(camelCase, ISO 문자열). 변환은 서버에서만 한다 */
-function toBookmark(r: Row): Bookmark {
+function toBookmark(r: Row, recent: number): Bookmark {
   return {
     id: r.id,
     title: r.title,
@@ -26,6 +43,7 @@ function toBookmark(r: Row): Bookmark {
     // DB 체크 제약(bookmarks_source_check)이 이 네 값만 허용한다
     source: r.source as BookmarkSource,
     clickCount: r.clickCount,
+    recentVisits: recent,
     lastVisitedAt: r.lastVisitedAt?.toISOString() ?? null,
     createdAt: r.createdAt.toISOString()
   }
@@ -36,29 +54,29 @@ const duplicate = (existingId: string) =>
   new ApiError('DUPLICATE_URL', '이미 저장된 주소입니다', { existingId })
 
 /**
- * 목록. 4주차에는 created_desc만(고정이 먼저). 정렬 5종·필터는 SEARCH-04.
+ * 목록. 서버는 기본 순서(고정 먼저, 최근 추가순) 하나만 돌려주고 정렬 4종은 앱이 한다(SEARCH-04, docs/01-spec.md '정렬 규칙').
  * 추가 시각이 같은 북마크가 있어(크롬 샘플 등) 마지막에 id로 끊는다. 없으면 요청마다 순서가 바뀐다.
- * 앱의 orderLikeServer(apps/desktop/.../lib/queries.ts)와 같은 규칙이어야 한다
+ * 앱의 sortBookmarks(apps/desktop/.../lib/order.ts)의 최근 추가순과 같은 규칙이어야 한다
  */
 export function listBookmarks(auth: AuthContext): Promise<Bookmark[]> {
   return withUserDb(auth, async (tx) => {
     const rows = await tx
-      .select()
+      .select({ b: bookmarks, recent: recentVisits })
       .from(bookmarks)
       .where(eq(bookmarks.userId, auth.userId))
       .orderBy(desc(bookmarks.isPinned), desc(bookmarks.createdAt), asc(bookmarks.id))
-    return rows.map(toBookmark)
+    return rows.map((r) => toBookmark(r.b, r.recent))
   })
 }
 
 export function getBookmark(auth: AuthContext, id: string): Promise<Bookmark> {
   return withUserDb(auth, async (tx) => {
     const [row] = await tx
-      .select()
+      .select({ b: bookmarks, recent: recentVisits })
       .from(bookmarks)
       .where(and(eq(bookmarks.id, id), eq(bookmarks.userId, auth.userId)))
     if (!row) throw notFound()
-    return toBookmark(row)
+    return toBookmark(row.b, row.recent)
   })
 }
 
@@ -91,7 +109,8 @@ export function createBookmark(auth: AuthContext, input: CreateBookmarkInput): P
       })
       .onConflictDoNothing({ target: [bookmarks.userId, bookmarks.normalizedUrl] })
       .returning()
-    if (row) return toBookmark(row)
+    // 방금 만든 북마크라 방문이 있을 수 없다
+    if (row) return toBookmark(row, 0)
 
     const existingId = await findIdByNormalizedUrl(tx, auth, normalized)
     // 충돌했는데 행이 안 보이는 경우는 없어야 한다. 있으면 조용히 넘기지 않고 500으로 드러낸다
@@ -135,7 +154,7 @@ export async function updateBookmark(auth: AuthContext, id: string, input: Updat
         .where(and(eq(bookmarks.id, id), eq(bookmarks.userId, auth.userId)))
         .returning()
       if (!row) throw notFound()
-      return toBookmark(row)
+      return toBookmark(row, await countRecentVisits(tx, row.id))
     })
   } catch (err) {
     // 위의 중복 확인과 UPDATE 사이에 다른 요청이 같은 URL을 넣은 경우. 트랜잭션은 이미 깨졌으니 새로 찾는다

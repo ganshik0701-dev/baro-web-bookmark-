@@ -700,6 +700,25 @@ button:focus-visible {
   color: var(--text-subtle);
 }
 
+/* SEARCH-04 정렬 드롭다운 (시안 메인 보드). 펼친 목록은 OS 기본이라 디자인 값이 없다 */
+.sort-select {
+  flex-shrink: 0;
+  height: var(--input-height);
+  padding: 0 var(--input-pad-x);
+  border: var(--card-border-width) solid var(--border);
+  border-radius: var(--btn-radius);
+  background: var(--surface);
+  font: inherit;
+  font-size: var(--btn-font-size);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.sort-select:focus-visible {
+  outline: var(--focus-ring-width) solid var(--accent);
+  outline-offset: 1px;
+}
+
 /* 기본 버튼('북마크 추가')의 + 아이콘은 글자와 같은 흰색 */
 .button-primary.toolbar-button svg {
   color: inherit;
