@@ -74,7 +74,7 @@ h1[tabindex='-1']:focus {
   color: var(--btn-secondary-text);
   font: inherit;
   font-size: var(--btn-font-size);
-  font-weight: var(--btn-font-weight);
+  font-weight: var(--btn-font-weight-secondary);
   cursor: pointer;
 }
 
@@ -131,7 +131,7 @@ button:focus-visible {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: 40px;
   font-weight: 700;
   letter-spacing: 2px;
@@ -248,7 +248,7 @@ button:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--tile-text);
+  color: var(--tile-fg);
   font-size: 17px;
   font-weight: 600;
 }
@@ -308,7 +308,7 @@ button:focus-visible {
 
 .sync-title {
   margin: 0;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: var(--text-title);
   font-weight: 700;
 }
@@ -409,7 +409,7 @@ button:focus-visible {
 .progress-track {
   height: 8px;
   border-radius: 6px;
-  background: var(--track);
+  background: var(--border);
   overflow: hidden;
 }
 
@@ -514,7 +514,7 @@ button:focus-visible {
 .sync-note {
   margin: 0;
   padding-top: 16px;
-  border-top: 1px solid var(--divider);
+  border-top: 1px solid var(--border);
   font-size: var(--text-caption);
   line-height: var(--leading-body);
   color: var(--text-subtle);
@@ -562,7 +562,7 @@ button:focus-visible {
 
 .modal-title {
   margin: 0;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: 21px;
   font-weight: 700;
 }
@@ -733,7 +733,7 @@ button:focus-visible {
   height: 44px;
   border: var(--btn-border-width) solid var(--border);
   border-radius: 50%;
-  background: var(--chrome);
+  background: var(--border);
   color: var(--text-muted);
   font: inherit;
   font-size: 14px;
@@ -846,7 +846,7 @@ button:focus-visible {
   align-items: center;
   justify-content: center;
   border-radius: var(--tile-radius);
-  color: var(--tile-text);
+  color: var(--tile-fg);
   font-size: calc(var(--tile-size) * var(--tile-letter-ratio));
   font-weight: 600;
   line-height: 1;
@@ -888,7 +888,7 @@ button:focus-visible {
   justify-content: space-between;
   gap: 16px;
   padding: 0 var(--page-x);
-  background: var(--chrome);
+  background: var(--bg);
   border-top: 1px solid var(--border);
   font-size: var(--text-small);
   color: var(--text-muted);
@@ -996,7 +996,7 @@ button:focus-visible {
   flex-direction: column;
   gap: 4px;
   padding-top: 16px;
-  border-top: var(--card-border-width) solid var(--divider);
+  border-top: var(--card-border-width) solid var(--border);
 }
 
 .bm-duplicate-title {

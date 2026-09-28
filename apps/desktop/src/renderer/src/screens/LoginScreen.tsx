@@ -1,6 +1,7 @@
 // SCR-01 로그인 화면. 시안(docs/04-design.md의 캔버스) '로그인'을 토큰 값으로 옮겼다.
 // 시안의 창 상단 표시줄은 그리지 않는다(Windows 기본 창틀을 쓴다).
 import type { AuthStatus } from '@baro/shared'
+import { letterTileStyle } from '../components/TileIcon'
 import { useScreenTitle } from './use-screen-title'
 
 type Props = {
@@ -81,7 +82,7 @@ export default function LoginScreen({ auth, waitingLogin, waitingLogout, onLogin
           <div className="preview-grid" aria-hidden="true">
             {PREVIEW_LETTERS.map((letter, i) => (
               <div key={i} className="preview-item">
-                <span className="preview-tile" style={{ background: `var(--tile-${(i % 8) + 1})` }}>
+                <span className="preview-tile" style={letterTileStyle((i % 8) + 1)}>
                   {letter}
                 </span>
                 <span className="preview-label" />

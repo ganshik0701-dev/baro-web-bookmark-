@@ -23,7 +23,7 @@ function fnv1a(text: string): number {
   return hash >>> 0
 }
 
-/** 1~8. 같은 호스트는 늘 같은 번호 → CSS에서 var(--tile-N) */
+/** 1~8. 같은 호스트는 늘 같은 번호 → CSS에서 var(--tile-N-bg)·var(--tile-N-fg) 한 쌍 */
 export function tileColor(url: string): number {
   return (fnv1a(tileHost(url)) % TILE_COLORS) + 1
 }

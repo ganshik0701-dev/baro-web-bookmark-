@@ -2,42 +2,54 @@
  * 디자인 토큰 — 여러 화면이 함께 쓰는 디자인 값은 전부 여기에 있다.
  * 값만 바꾸고 저장하면 된다. 무엇이 바뀌는지는 docs/04-design.md '어디를 고치면 무엇이 바뀌는가' 표.
  * 다른 CSS·TSX 파일은 여기 값을 var(--이름)으로 가져다 쓰기만 한다.
- * 다크 테마(v1.1 SET-02)는 같은 이름을 어두운 값으로 덮어쓴다.
+ * 시안: 캔버스 '최종 시안 — B 기준 (채택)'(2026-09-28). 다크 테마(v1.1 SET-02)는 같은 이름을 어두운 값으로 덮어쓴다.
  */
 :root {
   /* ── 색 ─────────────────────────────────────────── */
-  --bg: #f7f5f0;
+  --bg: #f5f6f8;
   --surface: #ffffff;
-  --chrome: #efece4;
-  --border: #e3dfd5;
-  --border-strong: #c9c3b5;
-  --divider: #eeeae0;
-  --text: #1a1917;
-  --text-muted: #55524c;
-  --text-subtle: #6b6862;
-  --accent: #a8481a;
-  --accent-soft: #fcf4ee;
-  --track: #eae5da;
-  --success: #3f7a5e;
-  --danger: #8c2f1b;
-  --backdrop: rgb(26 25 23 / 45%);
+  --border: #e3e6ea;
+  --border-strong: #dde1e6;
+  --text: #15181d;
+  --text-muted: #5b636e;
+  --text-subtle: #6b7380;
+  /* 버튼 배경(흰 글자 위). 흰 배경 위 글자인 링크는 --link로 따로 둔다(대비가 다르다) */
+  --accent: #2f5bd3;
+  --accent-soft: #eaf0fd;
+  --accent-strong: #1b3f9e;
+  --link: #2448b8;
+  --danger: #b3261e;
+  /* 중복 주소 안내 칸(사용자가 행동을 골라야 하는 상태. 오류 빨강과 구분) */
+  --warn-bg: #fdf3e7;
+  --warn-border: #f0dfc4;
+  --warn-text: #7a5500;
+  --backdrop: rgb(21 24 29 / 28%);
 
-  /* 글자 타일 팔레트(도메인 해시로 하나를 고른다). 글자는 --tile-text */
-  --tile-1: #2b3a67;
-  --tile-2: #a8481a;
-  --tile-3: #2f5d50;
-  --tile-4: #6b3f8c;
-  --tile-5: #8a4b1f;
-  --tile-6: #1f5468;
-  --tile-7: #7a3b6b;
-  --tile-8: #4a4640;
-  --tile-text: #ffffff;
+  /* 글자 타일: 도메인 해시로 한 쌍을 고른다. 연한 배경 + 같은 계열의 진한 글자(쌍마다 대비 4.5:1 이상) */
+  --tile-1-bg: #e3eafb;
+  --tile-1-fg: #1e47b3;
+  --tile-2-bg: #ddf3e6;
+  --tile-2-fg: #1b6b41;
+  --tile-3-bg: #fbf0d5;
+  --tile-3-fg: #7a5500;
+  --tile-4-bg: #fbe1e6;
+  --tile-4-fg: #a02847;
+  --tile-5-bg: #fde8dc;
+  --tile-5-fg: #a8431a;
+  --tile-6-bg: #eee3fa;
+  --tile-6-fg: #6a35a8;
+  --tile-7-bg: #daf1f5;
+  --tile-7-fg: #0e5e6e;
+  --tile-8-bg: #e7e9ec;
+  --tile-8-fg: #394049;
 
   /* ── 글자 ───────────────────────────────────────── */
   /* 글꼴은 앱에 들어 있다(main.tsx). 뒤의 이름들은 파일을 못 읽었을 때의 대비용 */
-  --font-serif: 'Gowun Batang', serif;
+  --font-display: 'Hahmlet', serif;
   --font-sans: 'IBM Plex Sans KR', 'Malgun Gothic', system-ui, sans-serif;
-  --text-title: 27px;
+  --text-title: 26px;
+  --text-modal-title: 22px;
+  --text-grid-section: 16px;
   --text-section: 15px;
   --text-body: 14px;
   --leading-body: 1.7;
@@ -46,11 +58,13 @@
   --text-tile-label: 12.5px;
 
   /* ── 화면 여백 ──────────────────────────────────── */
-  --page-x: 28px;
-  --page-top: 20px;
-  --section-gap: 20px;
+  --sidebar-width: 248px;
+  --sidebar-width-collapsed: 64px;
+  --page-x: 32px;
+  --page-top: 22px;
+  --section-gap: 22px;
   --section-title-gap: 12px;
-  --statusbar-height: 34px;
+  --statusbar-height: 38px;
 
   /* ── 버튼 ───────────────────────────────────────── */
   /* 공통: 기본·보조·위험이 함께 쓴다 */
@@ -59,8 +73,10 @@
   --btn-pad-x: 22px;
   --btn-pad-x-secondary: 16px;
   --btn-radius: 12px;
+  --control-radius: 10px;
   --btn-font-size: 14px;
-  --btn-font-weight: 500;
+  --btn-font-weight: 600;
+  --btn-font-weight-secondary: 400;
   --btn-border-width: 1px;
   /* 종류별 차이는 색뿐이다 */
   --btn-primary-bg: var(--accent);
@@ -69,25 +85,27 @@
   --btn-secondary-bg: var(--surface);
   --btn-secondary-text: var(--text);
   --btn-secondary-border: var(--border-strong);
+  --btn-disabled-bg: var(--bg);
+  --btn-disabled-text: var(--text-subtle);
   --btn-danger-bg: var(--danger);
   --btn-danger-text: #ffffff;
 
   /* ── 입력칸 ─────────────────────────────────────── */
-  /* 모서리는 --btn-radius, 테두리는 --border를 같이 쓴다 */
+  /* 테두리는 --border-strong(포커스 때 --accent) */
   --input-height: 44px;
   --input-pad-x: 14px;
 
   /* ── 카드·패널 ──────────────────────────────────── */
-  --card-radius: 18px;
-  --card-radius-lg: 22px;
-  --card-radius-sm: 14px;
+  --card-radius: 14px;
+  --card-radius-lg: 18px;
+  --card-radius-sm: 12px;
   --card-pad: 22px;
   --card-border-width: 1px;
 
   /* ── 그리드 (SCR-03) ────────────────────────────── */
-  /* 기준점은 px로만 쓴다. CSS가 아니라 JS가 읽어서 열을 정한다 */
-  --grid-bp-sm: 800px;
-  --grid-bp-md: 1100px;
+  /* 기준점은 그리드 영역 폭(창 − 사이드바 − 여백)이다. px로만 쓴다. CSS가 아니라 JS가 읽어서 열을 정한다 */
+  --grid-bp-sm: 640px;
+  --grid-bp-md: 1040px;
   --grid-cols-sm: 6;
   --grid-cols-md: 8;
   --grid-cols-lg: 10;
@@ -97,10 +115,10 @@
   --tile-radius: 18px;
   --tile-letter-ratio: 0.4;
   --tile-favicon-ratio: 0.5;
-  --grid-gap-row: 16px;
-  --grid-gap-col: 12px;
-  --tile-label-gap: 9px;
-  --tile-label-max: 104px;
+  --grid-gap-row: 18px;
+  --grid-gap-col: 8px;
+  --tile-label-gap: 8px;
+  --tile-label-max: 96px;
 
   /* ── 그 밖 ──────────────────────────────────────── */
   --focus-ring-width: 2px;
