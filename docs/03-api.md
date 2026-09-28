@@ -81,13 +81,14 @@ profiles 행이 없으면(가입 트리거가 실패한 경우 등) `401 INVALID
 
 ## PATCH /me
 
-설정 변경. **앱 토큰만**(확장은 설정을 바꾸지 않는다). 지금은 정렬(SEARCH-05) 하나만 받는다. 테마(SET-02)는 그 기능 때 칸을 더하고, 열기 방식(SET-01)은 v1에서 뺐다(docs/01-spec.md SET-01. `openMode`는 GET /me에만 남는다).
+설정 변경. **앱 토큰만**(확장은 설정을 바꾸지 않는다). 지금은 **정렬(SEARCH-05)과 자동 동기화(SCR-05)** 두 칸을 받는다. 테마(SET-02)는 그 기능 때 칸을 더하고, 열기 방식(SET-01)은 v1에서 뺐다(docs/01-spec.md SET-01. `openMode`는 GET /me에만 남는다).
 
 ```json
-{ "sortOption": "visits_30d" }
+{ "sortOption": "visits_30d" }   또는   { "autoSync": false }   (둘 다 보내도 된다)
 → 200 (GET /me와 같은 모양)
 ```
 - `sortOption`: `created_desc` / `visits_30d` / `visited_desc` / `title_asc`. `custom`은 드래그(SEARCH-06) 때 허용한다(DB는 이미 5종을 받는다)
+- `autoSync`: `true` / `false`. 앱은 켤 때 이 값을 보고 자동 동기화를 할지 정한다(docs/01-spec.md DESK-03 '자동 동기화')
 - `packages/shared`의 `updateMeInput`(strict)으로 검사. 모르는 칸·모르는 값·빈 본문은 `400 VALIDATION_ERROR`
 
 ## GET /bookmarks
