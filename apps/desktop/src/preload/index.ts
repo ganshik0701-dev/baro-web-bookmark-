@@ -3,12 +3,15 @@ import type { ApiFailure, ApiSuccess, AuthStatus, BookmarkSource, HealthResponse
 // 타입만 가져온다(번들에 메인 코드가 들어가지 않는다)
 import type { ChromeProfileSummary } from '../main/chrome-profiles'
 import type {
+  AutoSyncSettingResult,
   BookmarkFields,
   BookmarkListResult,
   BookmarkResult,
   DoneResult,
+  IssuedTokenResult,
   MetadataResult,
-  SortSettingResult
+  SortSettingResult,
+  TokenListResult
 } from '../main/api-client'
 import type { TileMenuChoice } from '../main/tile-menu'
 import type { ChromeReadResult, ChromeSelection } from '../main/chrome-selection'
@@ -46,6 +49,14 @@ const api = {
   pickChromeBookmarksFile: (): Promise<ChromeReadResult | null> => ipcRenderer.invoke('chrome:pickFile'),
   // 지금 선택된 프로필·파일을 읽는다
   readChromeBookmarks: (): Promise<ChromeReadResult> => ipcRenderer.invoke('chrome:read'),
+
+  // SCR-05 앱을 열 때 자동 동기화. 메인이 참/거짓인지 다시 검사한다
+  getAutoSync: (): Promise<AutoSyncSettingResult> => ipcRenderer.invoke('settings:getAutoSync'),
+  saveAutoSync: (value: boolean): Promise<DoneResult> => ipcRenderer.invoke('settings:saveAutoSync', value),
+  // EXT-01 확장 토큰. 발급 응답의 token(원본)은 이때 한 번만 온다. 화면 메모리에만 두고 저장·기록하지 않는다
+  listTokens: (): Promise<TokenListResult> => ipcRenderer.invoke('tokens:list'),
+  createToken: (name: string): Promise<IssuedTokenResult> => ipcRenderer.invoke('tokens:create', name),
+  revokeToken: (id: string): Promise<DoneResult> => ipcRenderer.invoke('tokens:revoke', id),
 
   // SCR-03. GET /bookmarks. 인자 없음. 실패하면 { error }가 온다(예외를 던지지 않는다)
   listBookmarks: (): Promise<BookmarkListResult> => ipcRenderer.invoke('bookmarks:list'),

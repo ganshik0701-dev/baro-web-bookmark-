@@ -15,7 +15,7 @@ function fakeUser(): AuthContext {
 const A = fakeUser()
 const B = fakeUser()
 
-describe.skipIf(!process.env.DATABASE_POOLER_URL)('me (SEARCH-05)', () => {
+describe.skipIf(!process.env.DATABASE_POOLER_URL)('me (SEARCH-05, SCR-05)', () => {
   beforeAll(async () => {
     for (const u of [A, B]) {
       await getRawDb().execute(sql`insert into auth.users (id, aud, role, email)
@@ -41,5 +41,13 @@ describe.skipIf(!process.env.DATABASE_POOLER_URL)('me (SEARCH-05)', () => {
   it('다른 사용자의 설정은 바뀌지 않는다', async () => {
     await updateMe(A, updateMeInput.parse({ sortOption: 'title_asc' }))
     expect((await getMe(B))?.sortOption).toBe('created_desc')
+  })
+
+  it('자동 동기화: 기본 true, 끄면 false로 읽히고 정렬은 그대로, B는 그대로', async () => {
+    expect((await getMe(A))?.autoSync).toBe(true)
+    const me = await updateMe(A, updateMeInput.parse({ autoSync: false }))
+    expect(me).toMatchObject({ autoSync: false, sortOption: 'title_asc' })
+    expect((await getMe(A))?.autoSync).toBe(false)
+    expect((await getMe(B))?.autoSync).toBe(true)
   })
 })

@@ -1,4 +1,4 @@
-// PATCH /me 입력 (SEARCH-05)
+// PATCH /me 입력 (SEARCH-05, SCR-05)
 import { describe, expect, it } from 'vitest'
 import { updateMeInput } from './me'
 
@@ -7,7 +7,15 @@ describe('updateMeInput', () => {
     expect(updateMeInput.parse({ sortOption: v })).toEqual({ sortOption: v })
   })
 
+  it('자동 동기화 참·거짓, 정렬과 함께도 받는다', () => {
+    expect(updateMeInput.parse({ autoSync: false })).toEqual({ autoSync: false })
+    expect(updateMeInput.parse({ autoSync: true, sortOption: 'title_asc' })).toEqual({ autoSync: true, sortOption: 'title_asc' })
+  })
+
   it.each<[unknown, string]>([
+    [{ autoSync: 'false' }, '문자열 false'],
+    [{ autoSync: 0 }, '숫자 0'],
+    [{ autoSync: null }, 'null'],
     [{ sortOption: 'custom' }, 'custom은 SEARCH-06 때'],
     [{ sortOption: 'CREATED_DESC' }, '대소문자 다름'],
     [{ sortOption: 1 }, '문자열 아님'],

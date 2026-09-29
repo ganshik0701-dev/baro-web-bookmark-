@@ -6,7 +6,12 @@ import {
   deleteBookmarkById,
   fetchBookmarks,
   getMetadata,
+  deleteTokenById,
+  fetchTokens,
+  getAutoSyncSetting,
   getSortSetting,
+  patchAutoSyncSetting,
+  postToken,
   isBookmarkId,
   patchBookmark,
   patchPinned,
@@ -299,6 +304,67 @@ describe('정렬 저장·복원 (SEARCH-05)', () => {
   it.each(['custom', 'hacked', 1, null])('저장: 4종이 아니면 요청 0건 (%j)', async (value) => {
     const s = setup([])
     expect(await patchSortSetting(s.deps, value)).toMatchObject({ error: { code: 'INVALID_INPUT' } })
+    expect(s.sent).toHaveLength(0)
+  })
+})
+
+describe('앱을 열 때 자동 동기화 (SCR-05)', () => {
+  it('GET /me에서 autoSync만 꺼낸다', async () => {
+    const s = setup([{ status: 200, body: { data: { autoSync: false, sortOption: 'x' } } }])
+    expect(await getAutoSyncSetting(s.deps)).toEqual({ data: { autoSync: false } })
+  })
+
+  it('저장: PATCH /me에 autoSync 하나만', async () => {
+    const s = setup([{ status: 200, body: { data: {} } }])
+    expect(await patchAutoSyncSetting(s.deps, true)).toEqual({ ok: true })
+    expect(s.sent[0]).toMatchObject({ url: 'http://api.test/api/v1/me', method: 'PATCH' })
+    expect(JSON.parse(s.sent[0].body as string)).toEqual({ autoSync: true })
+  })
+
+  it.each(['false', 0, null, undefined])('저장: 참/거짓이 아니면 요청 0건 (%j)', async (value) => {
+    const s = setup([])
+    expect(await patchAutoSyncSetting(s.deps, value)).toMatchObject({ error: { code: 'INVALID_INPUT' } })
+    expect(s.sent).toHaveLength(0)
+  })
+})
+
+describe('확장 토큰 (EXT-01, SCR-05)', () => {
+  const ID = '0f8fad5b-d9cb-469f-a165-70867728950e'
+
+  it('목록: GET /tokens의 data 그대로', async () => {
+    const item = { id: ID, name: '이 PC 크롬', prefix: 'baro_ab1', lastUsedAt: null, createdAt: '2026-09-29T00:00:00Z' }
+    const s = setup([{ status: 200, body: { data: [item], meta: { total: 1 } } }])
+    expect(await fetchTokens(s.deps)).toEqual({ data: [item] })
+    expect(s.sent[0]).toMatchObject({ url: 'http://api.test/api/v1/tokens', method: 'GET' })
+  })
+
+  it('발급: 이름 앞뒤 공백을 자르고 POST, 원본이 든 응답을 그대로 돌려준다', async () => {
+    const issued = { id: ID, name: '이 PC 크롬', prefix: 'baro_ab1', lastUsedAt: null, createdAt: 'x', token: 'baro_ab1XYZ' }
+    const s = setup([{ status: 201, body: { data: issued } }])
+    expect(await postToken(s.deps, '  이 PC 크롬  ')).toEqual({ data: issued })
+    expect(JSON.parse(s.sent[0].body as string)).toEqual({ name: '이 PC 크롬' })
+  })
+
+  it.each(['', '   ', 'a'.repeat(31), 3, null])('발급: 이름이 틀리면 요청 0건 (%j)', async (name) => {
+    const s = setup([])
+    expect(await postToken(s.deps, name)).toMatchObject({ error: { code: 'INVALID_INPUT' } })
+    expect(s.sent).toHaveLength(0)
+  })
+
+  it('발급: 5개 초과 409는 서버 오류 그대로', async () => {
+    const s = setup([{ status: 409, body: { error: { code: 'TOKEN_LIMIT_EXCEEDED', message: '5개까지' } } }])
+    expect(await postToken(s.deps, '이 PC 크롬')).toMatchObject({ error: { code: 'TOKEN_LIMIT_EXCEEDED' } })
+  })
+
+  it('폐기: DELETE /tokens/:id, 204면 성공', async () => {
+    const s = setup([{ status: 204 }])
+    expect(await deleteTokenById(s.deps, ID)).toEqual({ ok: true })
+    expect(s.sent[0]).toMatchObject({ url: `http://api.test/api/v1/tokens/${ID}`, method: 'DELETE' })
+  })
+
+  it.each(['../me', 'abc', 1, null])('폐기: uuid가 아니면 요청 0건 (%j)', async (id) => {
+    const s = setup([])
+    expect(await deleteTokenById(s.deps, id)).toMatchObject({ error: { code: 'INVALID_ID' } })
     expect(s.sent).toHaveLength(0)
   })
 })

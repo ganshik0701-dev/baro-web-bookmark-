@@ -36,12 +36,15 @@ export function getMe(auth: AuthContext): Promise<Me | null> {
   return withUserDb(auth, (tx) => selectMe(tx, auth))
 }
 
-/** SEARCH-05. 받은 칸만 바꾸고 GET /me와 같은 모양을 돌려준다. updated_at은 트리거가 바꾼다 */
+/** SEARCH-05·SCR-05. 받은 칸만 바꾸고 GET /me와 같은 모양을 돌려준다. updated_at은 트리거가 바꾼다 */
 export function updateMe(auth: AuthContext, input: UpdateMeInput): Promise<Me | null> {
   return withUserDb(auth, async (tx) => {
     await tx
       .update(profiles)
-      .set({ ...(input.sortOption !== undefined && { sortOption: input.sortOption }) })
+      .set({
+        ...(input.sortOption !== undefined && { sortOption: input.sortOption }),
+        ...(input.autoSync !== undefined && { autoSync: input.autoSync })
+      })
       .where(eq(profiles.id, auth.userId))
     return selectMe(tx, auth)
   })

@@ -1,7 +1,18 @@
 // 인증이 필요한 API 호출의 공통 부분 (메인 프로세스 전용).
 // electron을 import하지 않고 의존성을 주입받는다 → 가짜 fetch로 테스트한다(test/api-client.test.ts).
 // 토큰은 여기서 헤더에 붙이기만 하고 돌려주지 않는다.
-import { createBookmarkInput, httpUrl, updateBookmarkInput, updateMeInput, type ApiFailure, type Bookmark } from '@baro/shared'
+import {
+  createBookmarkInput,
+  createTokenInput,
+  httpUrl,
+  tokenId,
+  updateBookmarkInput,
+  updateMeInput,
+  type ApiFailure,
+  type ApiToken,
+  type Bookmark,
+  type IssuedApiToken
+} from '@baro/shared'
 
 export type ApiDeps = {
   /** 유효한 액세스 토큰. 만료가 가까우면 이 함수가 먼저 갱신한다 */
@@ -208,6 +219,64 @@ export async function patchSortSetting(deps: ApiDeps, value: unknown): Promise<D
   const parsed = updateMeInput.safeParse({ sortOption: value })
   if (!parsed.success) return invalidInput(parsed.error.issues[0]?.message)
   const r = await authedFetch(deps, '/me', { method: 'PATCH', body: JSON.stringify(parsed.data), timeoutMs: 10_000 })
+  if (r.kind === 'error') return { error: { code: r.code, message: r.message } }
+  return r.res.ok ? { ok: true } : failureOf(r.res)
+}
+
+// ─── 앱을 열 때 자동 동기화 (SCR-05) ──────────────────────────────────
+export type AutoSyncSettingResult = { data: { autoSync: boolean } } | ApiFailure
+
+/** GET /me에서 autoSync만 꺼낸다. 설정 화면이 스위치를 그릴 때 부른다 */
+export async function getAutoSyncSetting(deps: ApiDeps): Promise<AutoSyncSettingResult> {
+  const r = await authedFetch(deps, '/me', { timeoutMs: 10_000 })
+  if (r.kind === 'error') return { error: { code: r.code, message: r.message } }
+  if (!r.res.ok) return failureOf(r.res)
+  const body = (await r.res.json().catch(() => null)) as { data?: { autoSync?: unknown } } | null
+  const v = body?.data?.autoSync
+  return typeof v === 'boolean' ? { data: { autoSync: v } } : { error: { code: `HTTP_${r.res.status}`, message: '응답을 읽지 못했습니다' } }
+}
+
+/** PATCH /me { autoSync }. 참/거짓이 아니면 요청하지 않는다(렌더러가 보낸 값이 그대로 오므로) */
+export async function patchAutoSyncSetting(deps: ApiDeps, value: unknown): Promise<DoneResult> {
+  const parsed = updateMeInput.safeParse({ autoSync: value })
+  if (!parsed.success) return invalidInput(parsed.error.issues[0]?.message)
+  const r = await authedFetch(deps, '/me', { method: 'PATCH', body: JSON.stringify(parsed.data), timeoutMs: 10_000 })
+  if (r.kind === 'error') return { error: { code: r.code, message: r.message } }
+  return r.res.ok ? { ok: true } : failureOf(r.res)
+}
+
+// ─── 확장 토큰 (EXT-01, SCR-05) ───────────────────────────────────────
+// 원본(token)은 발급 응답에서 한 번 렌더러로 넘기기만 한다. 여기서 보관하거나 기록하지 않는다
+export type TokenListResult = { data: ApiToken[] } | ApiFailure
+export type IssuedTokenResult = { data: IssuedApiToken } | ApiFailure
+
+/** GET /tokens */
+export async function fetchTokens(deps: ApiDeps): Promise<TokenListResult> {
+  const r = await authedFetch(deps, '/tokens', { timeoutMs: 10_000 })
+  if (r.kind === 'error') return { error: { code: r.code, message: r.message } }
+  if (!r.res.ok) return failureOf(r.res)
+  const body = (await r.res.json().catch(() => null)) as { data?: unknown } | null
+  return Array.isArray(body?.data) ? { data: body.data as ApiToken[] } : { error: { code: `HTTP_${r.res.status}`, message: '응답을 읽지 못했습니다' } }
+}
+
+/** POST /tokens { name }. 이름은 shared 스키마(앞뒤 공백 자르고 1~30자)로 다시 검사하고, 틀리면 요청하지 않는다 */
+export async function postToken(deps: ApiDeps, name: unknown): Promise<IssuedTokenResult> {
+  const parsed = createTokenInput.safeParse({ name })
+  if (!parsed.success) return invalidInput(parsed.error.issues[0]?.message)
+  const r = await authedFetch(deps, '/tokens', { method: 'POST', body: JSON.stringify(parsed.data), timeoutMs: 10_000 })
+  if (r.kind === 'error') return { error: { code: r.code, message: r.message } }
+  if (!r.res.ok) return failureOf(r.res)
+  const body = (await r.res.json().catch(() => null)) as { data?: IssuedApiToken } | null
+  return body?.data && typeof body.data.token === 'string'
+    ? { data: body.data }
+    : { error: { code: `HTTP_${r.res.status}`, message: '응답을 읽지 못했습니다' } }
+}
+
+/** DELETE /tokens/:id. id가 uuid가 아니면 요청하지 않는다(주소에 들어가므로) */
+export async function deleteTokenById(deps: ApiDeps, id: unknown): Promise<DoneResult> {
+  const parsed = tokenId.safeParse(id)
+  if (!parsed.success) return { error: { code: 'INVALID_ID', message: '토큰 id가 올바르지 않습니다' } }
+  const r = await authedFetch(deps, `/tokens/${parsed.data}`, { method: 'DELETE', timeoutMs: 10_000 })
   if (r.kind === 'error') return { error: { code: r.code, message: r.message } }
   return r.res.ok ? { ok: true } : failureOf(r.res)
 }

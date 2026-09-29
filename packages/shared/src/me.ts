@@ -12,9 +12,12 @@ export const sortOption = z.enum(SELECTABLE_SORTS, {
   errorMap: () => ({ message: `정렬은 ${SELECTABLE_SORTS.join(' / ')} 중 하나여야 합니다` })
 })
 
-/** PATCH /me. 지금은 정렬(SEARCH-05) 하나. 열기 방식·테마는 SET-01·02 때 칸을 더한다 */
+/** PATCH /me. 정렬(SEARCH-05)과 앱을 열 때 자동 동기화(SCR-05). 테마는 SET-02 때 칸을 더한다 */
 export const updateMeInput = z
-  .object({ sortOption: sortOption.optional() })
+  .object({
+    sortOption: sortOption.optional(),
+    autoSync: z.boolean({ invalid_type_error: '자동 동기화는 true 또는 false여야 합니다' }).optional()
+  })
   .strict()
   .refine((v) => Object.values(v).some((x) => x !== undefined), '바꿀 항목이 없습니다')
 

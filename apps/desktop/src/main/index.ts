@@ -5,12 +5,17 @@ import {
   API_BASE,
   apiDeps,
   createBookmark,
+  createToken,
   deleteBookmark,
   fetchMe,
   fetchMetadata,
+  getAutoSync,
   getSortOption,
   listBookmarks,
+  listTokens,
   recordVisit,
+  revokeToken,
+  saveAutoSync,
   saveSortOption,
   setPinned,
   updateBookmark
@@ -122,7 +127,9 @@ function registerIpc(): void {
   // DESK-01·02. 읽기 함수는 인자를 받지 않는다. 렌더러가 경로를 정할 방법이 없어야 하므로
   // '지금 선택된 대상'만 읽는다. 경로를 인자로 받는 핸들러는 만들지 않는다(범용 파일 읽기가 된다).
   ipcMain.handle('chrome:listProfiles', async () => withBookmarkCounts(await findChromeProfiles()))
-  ipcMain.handle('chrome:getSelection', () => getChromeSelection())
+  // 화면에 보이는 선택도 동기화(readSelectedBookmarks)와 똑같이 서버 chromeProfile을 넣어 정한다.
+  // 빼면 이미 동기화한 계정에서 화면은 last_used를, 동기화는 서버 값을 쓴다(2026-09-29 발견, docs/01-spec.md)
+  ipcMain.handle('chrome:getSelection', async () => getChromeSelection((await fetchMe())?.chromeProfile))
   // 목록에 있는 폴더명일 때만 통과한다(selectChromeProfile이 확인한다)
   ipcMain.handle('chrome:selectProfile', (_event, name: unknown) => selectChromeProfile(name))
   ipcMain.handle('chrome:pickFile', (event) => pickBookmarksFile(BrowserWindow.fromWebContents(event.sender)))
@@ -146,6 +153,12 @@ function registerIpc(): void {
   // SEARCH-05. 저장은 값 하나만 받고 메인이 4종인지 다시 검사한다
   ipcMain.handle('settings:getSort', () => getSortOption())
   ipcMain.handle('settings:saveSort', (_event, value: unknown) => saveSortOption(value))
+  // SCR-05. 참/거짓·이름·uuid 검사는 api-client가 한다(렌더러가 보낸 값이 그대로 오므로)
+  ipcMain.handle('settings:getAutoSync', () => getAutoSync())
+  ipcMain.handle('settings:saveAutoSync', (_event, value: unknown) => saveAutoSync(value))
+  ipcMain.handle('tokens:list', () => listTokens())
+  ipcMain.handle('tokens:create', (_event, name: unknown) => createToken(name))
+  ipcMain.handle('tokens:revoke', (_event, id: unknown) => revokeToken(id))
   // 보조 메뉴는 OS 네이티브 메뉴로 띄우고, 고른 항목 이름만 돌려준다(요청은 렌더러가 항목별로 한다)
   ipcMain.handle('bookmarks:menu', (event, raw: unknown) =>
     showTileMenu(BrowserWindow.fromWebContents(event.sender), raw)
@@ -242,7 +255,7 @@ async function confirmSuspicious(): Promise<boolean> {
 
 /**
  * 앱을 켠 뒤 한 번. 첫 동기화 전(lastSyncedAt이 null)이면 **자동으로 보내지 않고**
- * SCR-02가 사용자에게 프로필을 고르게 한다(docs/01-spec.md '자동 동기화')
+ * SCR-02가 사용자에게 프로필을 고르게 한다. 설정에서 자동 동기화를 껐으면 하지 않는다(docs/01-spec.md '자동 동기화')
  */
 async function startupSync(): Promise<void> {
   const me = await fetchMe()
@@ -250,7 +263,8 @@ async function startupSync(): Promise<void> {
   // 이미 쓰던 사용자에게 첫 동기화 화면이 잘못 뜨는 편이 더 나쁘다
   const firstSync = me ? me.lastSyncedAt === null : false
   setSyncState({ ...syncState, firstSync, lastSyncedAt: me?.lastSyncedAt ?? syncState.lastSyncedAt })
-  if (!firstSync) await syncNow('startup')
+  // 서버에 못 물어봤으면(me가 null) 예전처럼 시도한다. 끈 것은 서버 값을 읽었을 때만 안다
+  if (!firstSync && me?.autoSync !== false) await syncNow('startup')
 }
 
 function syncNow(trigger: SyncTrigger): Promise<SyncState> {
