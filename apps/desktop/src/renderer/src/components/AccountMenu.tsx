@@ -8,9 +8,11 @@ type Props = {
   session: AuthSession
   waitingLogout: boolean
   onLogout: () => void
+  /** 사이드바가 접혔을 때: 이니셜만, 이름은 aria-label·title로 */
+  compact?: boolean
 }
 
-export default function AccountMenu({ session, waitingLogout, onLogout }: Props) {
+export default function AccountMenu({ session, waitingLogout, onLogout, compact = false }: Props) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -43,12 +45,14 @@ export default function AccountMenu({ session, waitingLogout, onLogout }: Props)
         className="account-button"
         aria-expanded={open}
         aria-controls="account-panel"
+        aria-label={compact ? '설정' : undefined}
+        title={compact ? '설정' : undefined}
         onClick={() => setOpen((v) => !v)}
       >
         <span className="account-initial" aria-hidden="true">
           {initial}
         </span>
-        설정
+        {!compact && '설정'}
       </button>
       {open && (
         <div id="account-panel" className="account-panel" role="group" aria-label="계정">

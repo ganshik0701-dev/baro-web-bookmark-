@@ -12,6 +12,7 @@ import { SORT_LABELS, SORT_OPTIONS, sortBookmarks, toSortOption, type SortOption
 import { buildSearchIndex, filterBookmarks, searchTerms } from '../lib/search'
 import { tileLabel } from '../lib/tile'
 import { usePendingDelete } from '../lib/use-pending-delete'
+import { useSidebarCollapsed } from '../lib/use-sidebar-collapsed'
 import { filterView, VIEW_LABELS, viewCounts, type View } from '../lib/view'
 import type { SyncState } from '../types'
 import { useScreenTitle } from './use-screen-title'
@@ -57,6 +58,8 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
   const terms = useMemo(() => searchTerms(deferredQuery), [deferredQuery])
   // 사이드바의 전체 / 고정됨 / 최근 추가. 켜면 '전체', 메모리에만 둔다. 순서: 거르기 → 검색 → 정렬
   const [view, setView] = useState<View>('all')
+  // 사이드바 접기: 누를 때만, 이 PC에만 기억(localStorage)
+  const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed()
   // '최근 30일'의 기준 시각. 목록이 바뀔 때 다시 잡는다(켜 둔 채 날이 바뀌어도 새로 받을 때 맞춰진다)
   const viewNow = useMemo(() => Date.now(), [list.data])
   const inViewList = useMemo(() => filterView(list.data ?? [], view, viewNow), [list.data, view, viewNow])
@@ -168,6 +171,8 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
         session={session}
         waitingLogout={waitingLogout}
         onLogout={onLogout}
+        collapsed={sidebarCollapsed}
+        onToggle={toggleSidebar}
         inert={modal !== null}
       />
 
