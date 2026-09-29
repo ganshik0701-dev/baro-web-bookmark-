@@ -26,7 +26,7 @@ import {
 } from './auth'
 import { initialSyncState, runSync, type SyncState, type SyncTrigger } from './sync'
 import { readBookmarksFile } from './chrome-bookmarks'
-import { findChromeProfiles } from './chrome-profiles'
+import { findChromeProfiles, withBookmarkCounts } from './chrome-profiles'
 import {
   getChromeSelection,
   selectChromeFile,
@@ -121,7 +121,7 @@ function registerIpc(): void {
 
   // DESK-01·02. 읽기 함수는 인자를 받지 않는다. 렌더러가 경로를 정할 방법이 없어야 하므로
   // '지금 선택된 대상'만 읽는다. 경로를 인자로 받는 핸들러는 만들지 않는다(범용 파일 읽기가 된다).
-  ipcMain.handle('chrome:listProfiles', () => findChromeProfiles())
+  ipcMain.handle('chrome:listProfiles', async () => withBookmarkCounts(await findChromeProfiles()))
   ipcMain.handle('chrome:getSelection', () => getChromeSelection())
   // 목록에 있는 폴더명일 때만 통과한다(selectChromeProfile이 확인한다)
   ipcMain.handle('chrome:selectProfile', (_event, name: unknown) => selectChromeProfile(name))

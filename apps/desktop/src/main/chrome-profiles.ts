@@ -1,7 +1,8 @@
 // 크롬 프로필 폴더 탐색과 표시 이름 (DESK-01·02, docs/01-spec.md 'Bookmarks 파일 읽기 규칙').
-// 메인 프로세스 전용. 읽기만 한다(readdir·stat·readFile).
+// 메인 프로세스 전용. 읽기만 한다(readdir·stat·readFile, Bookmarks는 chrome-bookmarks의 읽기 함수).
 import { readFile, readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
+import { readBookmarksFile } from './chrome-bookmarks'
 
 export type ChromeProfile = {
   /** 폴더 이름. 서버로 보내는 profile 값이다('Default', 'Profile 1') */
@@ -99,4 +100,22 @@ export async function findChromeProfiles(userDataDir: string | null = chromeUser
   // 마지막으로 쓴 프로필이 맨 앞, 그다음 Default, 나머지는 최근에 고친 것부터
   const rank = (p: ChromeProfile): number => (p.name === lastUsed ? 0 : p.name === DEFAULT_PROFILE ? 1 : 2)
   return found.sort((a, b) => rank(a) - rank(b) || b.modifiedAt.getTime() - a.modifiedAt.getTime())
+}
+
+/** SCR-02·SCR-05 프로필 목록에 보여 줄 개수. 파일을 못 읽으면 null */
+export type ProfileCounts = { bookmarks: number; folders: number }
+export type ChromeProfileSummary = ChromeProfile & { counts: ProfileCounts | null }
+
+/**
+ * 프로필마다 Bookmarks 파일을 읽어 북마크·폴더 수를 붙인다(목록을 보여줄 때만. 파일 하나 약 4ms).
+ * 개수는 서버로 보낼 것 기준이다(http/https가 아닌 것·최상위 폴더는 빼고 센다).
+ * 읽기 전용이고 다시 읽지 않는다(크롬이 저장 중이라 실패하면 그 프로필만 null). 자동 선택(chrome-selection)은 이 비용을 쓰지 않는다
+ */
+export async function withBookmarkCounts(profiles: ChromeProfile[]): Promise<ChromeProfileSummary[]> {
+  return Promise.all(
+    profiles.map(async (p) => {
+      const r = await readBookmarksFile(p.bookmarksPath, { retryDelayMs: 0 })
+      return { ...p, counts: r.ok ? { bookmarks: r.tree.bookmarks.length, folders: r.tree.folders.length } : null }
+    })
+  )
 }

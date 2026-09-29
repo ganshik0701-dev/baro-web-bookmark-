@@ -1,9 +1,9 @@
-// SCR-02 첫 동기화 (docs/01-spec.md 화면 명세, 시안 project/Sync.dc.html).
+// SCR-02 첫 동기화 (docs/01-spec.md 화면 명세, 시안 '2 · 첫 동기화').
 // 프로필을 고르고 '가져오기' → 단계 표시 → 결과. 대량 삭제 확인은 MassDeleteModal이 받는다.
 //
 // 이 화면은 서버 lastSyncedAt이 null일 때만 보인다. 한 번이라도 동기화한 계정은 바로 홈으로 간다.
 import { useEffect, useState } from 'react'
-import type { ChromeProfile, ChromeSelection, SyncState } from '../types'
+import type { ChromeProfileSummary, ChromeSelection, SyncState } from '../types'
 import { useScreenTitle } from './use-screen-title'
 
 type Props = {
@@ -20,7 +20,7 @@ const SKIP_LABEL: Record<string, string> = {
 
 export default function SyncScreen({ sync, onSkip }: Props) {
   const headingRef = useScreenTitle('첫 동기화')
-  const [profiles, setProfiles] = useState<ChromeProfile[] | null>(null)
+  const [profiles, setProfiles] = useState<ChromeProfileSummary[] | null>(null)
   const [selection, setSelection] = useState<ChromeSelection | null>(null)
   const [picking, setPicking] = useState(false)
 
@@ -69,7 +69,8 @@ export default function SyncScreen({ sync, onSkip }: Props) {
           <p className="sync-lead">
             {done
               ? '이제 바로에서 북마크를 열 수 있습니다. 크롬에서 바꾼 내용은 앱을 켤 때마다 따라옵니다.'
-              : '가져올 크롬 프로필을 고르세요. 폴더는 그룹으로 옮겨지고, 같은 주소는 건너뜁니다.'}
+              : // 그룹은 v1.1이라 앱에 보이지 않는다. 폴더 이야기는 그룹을 붙일 때 되돌린다(04-design.md '보드와 다른 곳' 17)
+                '가져올 크롬 프로필을 고르세요. 이미 있는 주소는 건너뜁니다.'}
           </p>
         </div>
 
@@ -119,7 +120,7 @@ export default function SyncScreen({ sync, onSkip }: Props) {
         </div>
 
         <p className="sync-note">
-          크롬을 쓰지 않거나 파일을 찾지 못했다면 <code>Bookmarks</code> 파일을 직접 고를 수 있습니다. 바로는 이 파일을
+          크롬을 쓰지 않거나 파일을 찾지 못했다면, <code>Bookmarks</code> 파일을 직접 고를 수 있습니다. 바로는 이 파일을
           읽기만 하고 고치지 않습니다.
         </p>
       </div>
@@ -134,7 +135,7 @@ function ProfileList({
   busy,
   onChoose
 }: {
-  profiles: ChromeProfile[] | null
+  profiles: ChromeProfileSummary[] | null
   selection: ChromeSelection | null
   selectedName: string | null
   busy: boolean
@@ -174,7 +175,7 @@ function ProfileList({
             <span className="profile-text">
               <span className="profile-name">{p.displayName ? `${p.name} · ${p.displayName}` : p.name}</span>
               <span className="profile-detail">
-                마지막 변경 {new Date(p.modifiedAt).toLocaleDateString('ko-KR')}
+                {p.counts ? `북마크 ${p.counts.bookmarks}개 · 폴더 ${p.counts.folders}개` : '북마크 파일을 읽지 못했습니다'}
               </span>
             </span>
           </label>

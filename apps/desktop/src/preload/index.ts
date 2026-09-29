@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type { ApiFailure, ApiSuccess, AuthStatus, BookmarkSource, HealthResponse } from '@baro/shared'
 // 타입만 가져온다(번들에 메인 코드가 들어가지 않는다)
-import type { ChromeProfile } from '../main/chrome-profiles'
+import type { ChromeProfileSummary } from '../main/chrome-profiles'
 import type {
   BookmarkFields,
   BookmarkListResult,
@@ -37,7 +37,7 @@ const api = {
 
   // DESK-01·02. 크롬 북마크 읽기라는 좁은 용도만 연다.
   // 읽기 함수에는 인자가 없다. 경로를 받는 함수를 두면 렌더러가 아무 파일이나 읽을 수 있게 된다.
-  listChromeProfiles: (): Promise<ChromeProfile[]> => ipcRenderer.invoke('chrome:listProfiles'),
+  listChromeProfiles: (): Promise<ChromeProfileSummary[]> => ipcRenderer.invoke('chrome:listProfiles'),
   getChromeSelection: (): Promise<ChromeSelection | null> => ipcRenderer.invoke('chrome:getSelection'),
   // 탐색 목록에 있는 폴더명만 통한다. 그 밖의 문자열은 메인이 거절하고 null을 준다
   selectChromeProfile: (name: string): Promise<ChromeSelection | null> =>

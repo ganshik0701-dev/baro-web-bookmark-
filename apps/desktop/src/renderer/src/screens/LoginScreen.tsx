@@ -13,8 +13,14 @@ type Props = {
   onLogout: () => void
 }
 
-// 미리보기 타일. 색은 --tile-1~8을 차례로 쓴다
-const PREVIEW_LETTERS = ['G', 'N', 'F', '유', 'S', 'M', '네', 'V', 'T', '인', 'Z', '토']
+// 미리보기 줄(시안 '1 · 로그인'): 글자 타일 + 제목·주소 자리 막대. 색 쌍은 시안과 같은 번호
+const PREVIEW_ROWS = [
+  { letter: 'G', tile: 1 },
+  { letter: 'N', tile: 2 },
+  { letter: 'F', tile: 3 },
+  { letter: '유', tile: 6 },
+  { letter: 'S', tile: 5 }
+]
 
 export default function LoginScreen({ auth, waitingLogin, waitingLogout, onLogin, onCancelLogin, onLogout }: Props) {
   const headingRef = useScreenTitle('바로 — 로그인')
@@ -28,8 +34,8 @@ export default function LoginScreen({ auth, waitingLogin, waitingLogout, onLogin
         <div className="login-intro">
           <h1 ref={headingRef} tabIndex={-1} className="login-logo">
             <span className="logo-mark" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M13 3L5 13h6l-1 8 8-10h-6z" />
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round">
+                <path d="M13 3L5 13.5h6L10 21l8-10.5h-6L13 3z" />
               </svg>
             </span>
             바로
@@ -37,11 +43,10 @@ export default function LoginScreen({ auth, waitingLogin, waitingLogout, onLogin
           <p className="login-tagline">
             크롬 북마크를
             <br />
-            폰 홈 화면처럼 한 번에.
+            한 화면에서 찾고 여는 곳.
           </p>
           <p className="login-desc">
-            Google 계정으로 로그인하면 이 PC의 크롬 북마크를 읽어 아이콘으로 정리합니다. 자주 여는 것부터 볼 수도
-            있습니다.
+            Google 계정으로 로그인하면 이 PC의 크롬 북마크를 읽어 정리합니다. 자주 여는 것부터 볼 수도 있습니다.
           </p>
 
           {reconnecting ? (
@@ -79,16 +84,19 @@ export default function LoginScreen({ auth, waitingLogin, waitingLogout, onLogin
             로그인 후 이렇게 보입니다
           </h2>
           {/* 그림일 뿐이라 스크린리더에는 숨긴다 */}
-          <div className="preview-grid" aria-hidden="true">
-            {PREVIEW_LETTERS.map((letter, i) => (
-              <div key={i} className="preview-item">
-                <span className="preview-tile" style={letterTileStyle((i % 8) + 1)}>
-                  {letter}
+          <ul className="preview-rows" aria-hidden="true">
+            {PREVIEW_ROWS.map((row) => (
+              <li key={row.letter} className="preview-row">
+                <span className="preview-tile" style={letterTileStyle(row.tile)}>
+                  {row.letter}
                 </span>
-                <span className="preview-label" />
-              </div>
+                <span className="preview-bars">
+                  <span className="preview-bar" />
+                  <span className="preview-bar is-sub" />
+                </span>
+              </li>
             ))}
-          </div>
+          </ul>
         </section>
       </main>
 

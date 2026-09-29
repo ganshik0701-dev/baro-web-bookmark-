@@ -116,35 +116,37 @@ button:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 72px;
-  padding: 0 var(--page-x);
+  /* 시안의 좌우 90px는 1280px 창에서 가운데 맞춤으로 생긴 값. 최소 여백은 --page-x */
+  padding: 24px var(--page-x);
 }
 
 .login-intro {
-  width: 380px;
+  width: 400px;
   /* 최소 창 420px에서는 좌우 여백을 뺀 폭으로 줄어든다 */
   max-width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 22px;
 }
 
 .login-logo {
-  margin: 0 0 6px;
+  margin: 0;
   display: flex;
   align-items: center;
   gap: 12px;
   font-family: var(--font-display);
-  font-size: 40px;
+  font-size: 38px;
   font-weight: 700;
-  letter-spacing: 2px;
   line-height: 1.2;
 }
 
 .logo-mark {
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
   border-radius: 14px;
   background: var(--accent);
+  color: var(--btn-primary-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -157,14 +159,15 @@ button:focus-visible {
 }
 
 .login-desc {
-  margin: 0 0 6px;
+  margin: 0;
+  line-height: var(--leading-body);
   color: var(--text-muted);
 }
 
-/* 보조 버튼과 같은 색. 글자만 이 화면 전용으로 15px */
+/* 보조 버튼과 같은 색. 높이·글자는 이 화면 전용(52px, 15px) */
 .button-login {
   width: 100%;
-  height: var(--btn-height);
+  height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -175,7 +178,7 @@ button:focus-visible {
   color: var(--btn-secondary-text);
   font: inherit;
   font-size: 15px;
-  font-weight: var(--btn-font-weight);
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -188,14 +191,16 @@ button:focus-visible {
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1;
 }
 
+/* 시안은 --text-subtle이지만 --bg 위라 대비가 모자라(4.42) --text-muted를 쓴다(04-design.md '명도 대비') */
 .login-note {
   margin: 0;
   font-size: var(--text-caption);
-  color: var(--text-subtle);
+  line-height: var(--leading-body);
+  color: var(--text-muted);
 }
 
 .login-intro .button-secondary {
@@ -210,13 +215,12 @@ button:focus-visible {
 }
 
 .login-preview {
-  width: 300px;
-  height: 300px;
+  width: 330px;
   flex-shrink: 0;
   padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   background: var(--surface);
   border: var(--card-border-width) solid var(--border);
   border-radius: var(--card-radius-lg);
@@ -226,77 +230,109 @@ button:focus-visible {
   margin: 0;
   font-size: var(--text-small);
   font-weight: 600;
-  letter-spacing: 0.4px;
-  color: var(--text-subtle);
+  color: var(--text-muted);
 }
 
-.preview-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px 10px;
-}
-
-.preview-item {
+.preview-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
+  gap: 10px;
+}
+
+.preview-row {
+  display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 12px;
 }
 
 .preview-tile {
-  width: 44px;
-  height: 44px;
-  border-radius: 13px;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 11px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--tile-fg);
-  font-size: 17px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
 }
 
-.preview-label {
-  width: 46px;
-  height: 5px;
-  border-radius: 3px;
+.preview-bars {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 제목·주소 자리. 줄마다 길이만 다르다(시안 값) */
+.preview-bar {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
   background: var(--border);
 }
 
+.preview-bar.is-sub {
+  height: 7px;
+}
+
+.preview-row:nth-child(1) .preview-bar { width: 72%; }
+.preview-row:nth-child(1) .preview-bar.is-sub { width: 46%; }
+.preview-row:nth-child(2) .preview-bar { width: 58%; }
+.preview-row:nth-child(2) .preview-bar.is-sub { width: 38%; }
+.preview-row:nth-child(3) .preview-bar { width: 64%; }
+.preview-row:nth-child(3) .preview-bar.is-sub { width: 40%; }
+.preview-row:nth-child(4) .preview-bar { width: 48%; }
+.preview-row:nth-child(4) .preview-bar.is-sub { width: 30%; }
+.preview-row:nth-child(5) .preview-bar { width: 68%; }
+.preview-row:nth-child(5) .preview-bar.is-sub { width: 42%; }
+
+/* 최소 높이만 두고 문구가 여러 줄이 되면(좁은 창) 높이가 는다 */
 .login-footer {
-  height: 40px;
+  min-height: 40px;
+  box-sizing: border-box;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 var(--page-x);
+  padding: 8px var(--page-x);
+  background: var(--surface);
+  border-top: var(--card-border-width) solid var(--border);
   font-size: var(--text-small);
+  line-height: 1.5;
+  text-align: center;
   color: var(--text-subtle);
 }
 
-/* 좁은 창에서는 두 칸이 들어가지 않는다. 미리보기는 그림일 뿐이라 뺀다 */
+/* 두 칸(400 + 72 + 330 + 여백 32×2 = 866px)이 들어가지 않는 폭. 미리보기는 그림일 뿐이라 뺀다 */
 @media (max-width: 900px) {
   .login-preview {
     display: none;
   }
 }
 
-/* ---------- SCR-02 첫 동기화 (시안 project/Sync.dc.html) ---------- */
+/* ---------- SCR-02 첫 동기화 (시안 '2 · 첫 동기화') ---------- */
 
 .sync-screen {
   min-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px 60px;
+  /* 좌우 60px(시안). 좁은 창에서는 창 폭의 5%까지 줄인다(420px 창에서 21px, 카드 안 내용 약 302px) */
+  padding: 32px min(60px, 5vw);
 }
 
 .sync-card {
-  width: 620px;
+  width: 660px;
   max-width: 100%;
   background: var(--surface);
   border: var(--card-border-width) solid var(--border);
   border-radius: var(--card-radius-lg);
-  padding: 36px 40px;
+  padding: 34px 38px;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -376,7 +412,7 @@ button:focus-visible {
 
 .profile-name {
   font-size: 14.5px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .profile-detail {
@@ -446,7 +482,8 @@ button:focus-visible {
 .result-list {
   margin: 0;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* 넓으면 한 줄에 넷, 좁은 창에서는 둘씩 */
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   gap: 12px;
 }
 
@@ -493,7 +530,19 @@ button:focus-visible {
 .sync-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
+}
+
+/* 이 화면의 버튼은 48px·14.5px(시안) */
+.sync-actions .button-primary,
+.sync-actions .button-secondary {
+  height: 48px;
+  font-size: 14.5px;
+}
+
+.sync-actions .button-secondary {
+  padding: 0 20px;
 }
 
 .sync-link {
@@ -503,7 +552,7 @@ button:focus-visible {
   padding: 4px;
   font-family: inherit;
   font-size: 13px;
-  color: var(--accent);
+  color: var(--link);
   text-decoration: underline;
   cursor: pointer;
 }
@@ -515,8 +564,8 @@ button:focus-visible {
 
 .sync-note {
   margin: 0;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
+  padding-top: 4px;
+  border-top: var(--card-border-width) solid var(--border);
   font-size: var(--text-caption);
   line-height: var(--leading-body);
   color: var(--text-subtle);
@@ -917,12 +966,13 @@ button:focus-visible {
   font-weight: 700;
 }
 
+/* 창 기준(fixed)으로 띄운다. left·bottom은 AccountMenu가 버튼 위치로 정한다(사이드바 overflow에 잘리지 않게) */
 .account-panel {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
+  position: fixed;
   z-index: 10;
   width: 260px;
+  max-width: calc(100vw - 16px);
+  box-sizing: border-box;
   padding: var(--card-pad);
   display: flex;
   flex-direction: column;

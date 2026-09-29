@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { readBookmarksFile } from '../src/main/chrome-bookmarks'
-import { chromeUserDataDir, findChromeProfiles, parseLocalState } from '../src/main/chrome-profiles'
+import { chromeUserDataDir, findChromeProfiles, parseLocalState, withBookmarkCounts } from '../src/main/chrome-profiles'
 
 const GOOD = JSON.stringify({
   roots: {
@@ -118,6 +118,15 @@ describe('findChromeProfiles', () => {
     const found = await findChromeProfiles(userData)
     expect(found.map((p) => p.name)).toEqual(['Default', 'Profile 2', 'Profile 1'])
     expect(found[0]!.bookmarksPath).toBe(join(userData, 'Default', 'Bookmarks'))
+  })
+
+  it('withBookmarkCounts: 프로필마다 보낼 북마크·폴더 수, 못 읽는 파일은 null', async () => {
+    const broken = join(dir, 'broken-Bookmarks')
+    await writeFile(broken, '{ 잘린 파일', 'utf8')
+    const [ok] = await findChromeProfiles(userData)
+    const [good, bad] = await withBookmarkCounts([ok!, { ...ok!, name: 'Profile 9', bookmarksPath: broken }])
+    expect(good!.counts).toEqual({ bookmarks: 1, folders: 0 })
+    expect(bad!.counts).toBeNull()
   })
 
   it('폴더가 없으면 빈 목록(크롬 미설치). 오류를 던지지 않는다', async () => {
