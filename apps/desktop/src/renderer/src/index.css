@@ -978,7 +978,32 @@ button:focus-visible {
 .home-main {
   flex-grow: 1;
   overflow-y: auto;
+  /* 스크롤바 자리를 늘 비워 둔다. 목록 길이에 따라 스크롤바가 생기고 사라지며 그리드 폭(→ 열 수)이 흔들리지 않게 */
+  scrollbar-gutter: stable;
   padding: var(--page-top) var(--page-x);
+}
+
+/* 검색 중 제목: "'…' 검색 결과" + "N개 · 전체 M개 중" (시안 '4 · 검색 중') */
+.search-heading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-bottom: var(--section-gap);
+}
+
+.search-heading-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.search-heading-count {
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 /* 불러오는 중·실패·0개 */
@@ -1004,17 +1029,17 @@ button:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: var(--text-small);
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: var(--text-grid-section);
+  font-weight: 700;
+  color: var(--text);
 }
 
 .grid-section-title svg {
   color: var(--accent);
 }
 
-/* --grid-cols·--tile-size는 BookmarkGrid가 창 너비에 맞춰 넣는다(값은 tokens.css의 그리드 토큰) */
+/* --grid-cols·--tile-size는 BookmarkGrid가 그리드 영역 폭에 맞춰 넣는다(값은 tokens.css의 그리드 토큰) */
 .grid {
   list-style: none;
   margin: 0;
@@ -1093,12 +1118,11 @@ button:focus-visible {
   padding: 0 var(--page-x);
   background: var(--bg);
   border-top: 1px solid var(--border);
-  font-size: var(--text-small);
+  font-size: var(--text-caption);
   color: var(--text-muted);
   white-space: nowrap;
 }
 
-.statusbar-info,
 .statusbar-message {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1108,8 +1132,8 @@ button:focus-visible {
   color: var(--danger);
 }
 
-/* 오른쪽 문구 + 선택 버튼(삭제 '실행 취소'). 문구가 길면 문구만 줄이고 버튼은 늘 보인다 */
-.statusbar-right {
+/* 왼쪽 문구 + 선택 버튼(삭제 '실행 취소'). 문구가 길면 문구만 줄이고 버튼은 늘 보인다 */
+.statusbar-left {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1123,8 +1147,8 @@ button:focus-visible {
   background: none;
   padding: 2px 4px;
   font-family: inherit;
-  font-size: var(--text-small);
-  color: var(--accent);
+  font-size: var(--text-caption);
+  color: var(--link);
   text-decoration: underline;
   cursor: pointer;
 }

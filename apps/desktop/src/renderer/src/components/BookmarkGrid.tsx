@@ -1,6 +1,6 @@
 // 아이콘 그리드 (SCR-03). '고정됨'(없으면 숨김) + 현재 정렬 이름의 섹션.
-// 열 수·아이콘 크기는 useGridLayout이 tokens.css에서 읽어 --grid-cols·--tile-size로 넘긴다.
-import type { CSSProperties } from 'react'
+// 열 수·아이콘 크기는 useGridLayout이 그리드 영역 폭과 tokens.css로 정해 --grid-cols·--tile-size로 넘긴다.
+import { useRef, type CSSProperties } from 'react'
 import type { Bookmark } from '@baro/shared'
 import { useGridLayout } from '../lib/use-grid-layout'
 import BookmarkTile from './BookmarkTile'
@@ -14,14 +14,13 @@ type Props = TileHandlers & {
   bookmarks: Bookmark[]
   /** 지우는 중(실행 취소 대기·전송 중)이라 숨길 id. 그 사이 목록을 다시 받아도 보이지 않게 한다 */
   hidden: ReadonlySet<string>
-  /** 아래 섹션 이름: 고른 정렬의 이름(SEARCH-04) */
+  /** 아래 섹션 이름: 고른 정렬의 이름(SEARCH-04) 또는 '최근 추가 · 30일'. 검색 중에도 같다(검색 제목은 HomeScreen) */
   sortTitle: string
-  /** 검색 중이면 아래 섹션 이름이 '검색 결과 N개'(SEARCH-01) */
-  searching?: boolean
 }
 
-export default function BookmarkGrid({ bookmarks, hidden, sortTitle, searching = false, onOpen, onMenu }: Props) {
-  const layout = useGridLayout()
+export default function BookmarkGrid({ bookmarks, hidden, sortTitle, onOpen, onMenu }: Props) {
+  const areaRef = useRef<HTMLDivElement>(null)
+  const layout = useGridLayout(areaRef)
   const visible = hidden.size > 0 ? bookmarks.filter((b) => !hidden.has(b.id)) : bookmarks
   // 고정은 이미 앞에 와 있다(sortBookmarks). 섹션만 여기서 나눈다
   const pinned = visible.filter((b) => b.isPinned)
@@ -29,7 +28,7 @@ export default function BookmarkGrid({ bookmarks, hidden, sortTitle, searching =
   const vars = { '--grid-cols': layout.cols, '--tile-size': `${layout.tile}px` } as CSSProperties
 
   return (
-    <div className="grid-area" style={vars} data-grid-size={layout.size}>
+    <div ref={areaRef} className="grid-area" style={vars} data-grid-size={layout.size}>
       {pinned.length > 0 && (
         <section className="grid-section" aria-labelledby="grid-pinned">
           <h2 id="grid-pinned" className="grid-section-title">
@@ -45,7 +44,7 @@ export default function BookmarkGrid({ bookmarks, hidden, sortTitle, searching =
       {rest.length > 0 && (
         <section className="grid-section" aria-labelledby="grid-rest">
           <h2 id="grid-rest" className="grid-section-title">
-            {searching ? `검색 결과 ${visible.length}개` : sortTitle}
+            {sortTitle}
           </h2>
           <TileList bookmarks={rest} onOpen={onOpen} onMenu={onMenu} />
         </section>

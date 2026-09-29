@@ -1,4 +1,4 @@
-// 창 너비 → 열 수·아이콘 크기 (docs/04-design.md '그리드').
+// 그리드 영역 폭 → 열 수·아이콘 크기 (docs/04-design.md '그리드'). 사이드바가 생겨 창 너비가 아니라 영역 폭으로 정한다.
 // CSS 변수는 @media 조건에 쓸 수 없어서 tokens.css의 값을 JS가 읽어 정한다.
 // 고칠 곳은 tokens.css 하나다(--grid-bp-*, --grid-cols-*, --tile-size-*).
 
@@ -13,13 +13,13 @@ export type GridLayout = { size: 'sm' | 'md' | 'lg'; cols: number; tile: number 
 
 /** 토큰을 못 읽었을 때(값 오타 등)의 기본값. docs/04-design.md 그리드 표와 같다 */
 export const DEFAULT_GRID: GridTokens = {
-  bpSm: 800,
-  bpMd: 1100,
+  bpSm: 640,
+  bpMd: 1040,
   cols: { sm: 6, md: 8, lg: 10 },
   tile: { sm: 56, md: 64, lg: 72 }
 }
 
-/** 기준점 '이하'면 그 배치. ~800 → sm, 801~1100 → md, 1101~ → lg */
+/** 기준점 '이하'면 그 배치. ~640 → sm, 641~1040 → md, 1041~ → lg (그리드 영역 폭) */
 export function pickLayout(width: number, t: GridTokens): GridLayout {
   const size = width <= t.bpSm ? 'sm' : width <= t.bpMd ? 'md' : 'lg'
   return { size, cols: t.cols[size], tile: t.tile[size] }

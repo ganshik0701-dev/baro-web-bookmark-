@@ -79,7 +79,9 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
   }
   const results = useMemo(() => sortBookmarks(filterBookmarks(searchIndex, terms), sort), [searchIndex, terms, sort])
   const searching = terms.length > 0
-  const noResults = searching && results.every((b) => deletion.hidden.has(b.id))
+  // 검색 결과 수(지우는 중인 것은 빼고). 제목 "N개 · 전체 M개 중"의 N. M은 사이드바에서 고른 항목의 개수
+  const resultCount = useMemo(() => results.filter((b) => !deletion.hidden.has(b.id)).length, [results, deletion.hidden])
+  const noResults = searching && resultCount === 0
   // 고른 항목(고정됨·최근 추가)이 비었을 때. 검색 중이면 위의 '결과 0개'가 먼저다
   const viewEmpty = !searching && VIEW_LABELS[view].empty !== null && counts[view] === 0
   const clearSearch = () => {
@@ -230,14 +232,23 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
                 </button>
               </div>
             ) : (
-              <BookmarkGrid
-                bookmarks={results}
-                hidden={deletion.hidden}
-                sortTitle={VIEW_LABELS[view].section ?? SORT_LABELS[sort].section}
-                searching={searching}
-                onOpen={open}
-                onMenu={openMenu}
-              />
+              <>
+                {searching && (
+                  <div className="search-heading">
+                    <h2 className="search-heading-title">‘{deferredQuery.trim()}’ 검색 결과</h2>
+                    <span className="search-heading-count">
+                      {resultCount}개 · 전체 {counts[view]}개 중
+                    </span>
+                  </div>
+                )}
+                <BookmarkGrid
+                  bookmarks={results}
+                  hidden={deletion.hidden}
+                  sortTitle={VIEW_LABELS[view].section ?? SORT_LABELS[sort].section}
+                  onOpen={open}
+                  onMenu={openMenu}
+                />
+              </>
             )
           ) : (
             <div className="home-state">
@@ -261,7 +272,7 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
         )}
       </main>
 
-      <StatusBar sync={sync} message={message} inert={modal !== null} />
+      <StatusBar message={message} inert={modal !== null} />
       </div>
 
       {modal && (

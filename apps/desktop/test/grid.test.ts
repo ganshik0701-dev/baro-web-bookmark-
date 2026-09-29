@@ -79,14 +79,14 @@ describe('faviconUrl', () => {
 
 describe('pickLayout (docs/04-design.md 그리드 표)', () => {
   it.each([
-    [786, 'sm', 6, 56],
-    [800, 'sm', 6, 56],
-    [801, 'md', 8, 64],
-    [1086, 'md', 8, 64],
-    [1100, 'md', 8, 64],
-    [1101, 'lg', 10, 72],
+    [488, 'sm', 6, 56],
+    [640, 'sm', 6, 56],
+    [641, 'md', 8, 64],
+    [958, 'md', 8, 64],
+    [1040, 'md', 8, 64],
+    [1041, 'lg', 10, 72],
     [1400, 'lg', 10, 72]
-  ])('너비 %i → %s %i열 %ipx', (w, size, cols, tile) => {
+  ])('그리드 영역 폭 %i → %s %i열 %ipx', (w, size, cols, tile) => {
     expect(pickLayout(w, DEFAULT_GRID)).toEqual({ size, cols, tile })
   })
 })

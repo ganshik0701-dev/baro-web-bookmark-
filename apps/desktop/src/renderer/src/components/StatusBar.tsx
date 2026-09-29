@@ -1,7 +1,5 @@
-// 하단 상태바 (SCR-03). 왼쪽은 '마지막 동기화 · 크롬 프로필', 오른쪽은 지금 알릴 것 하나.
-import { useNow } from '../lib/use-now'
-import { relativeTime } from '../lib/relative-time'
-import type { SyncState } from '../types'
+// 하단 상태바 (SCR-03). 왼쪽은 지금 알릴 것 하나, 오른쪽 끝은 오프라인 배지 자리(DESK-04, v1.1이라 비워 둔다).
+// 마지막 동기화 시각·크롬 프로필은 사이드바 아래로 옮겼다
 
 export type StatusMessage = {
   text: string
@@ -11,23 +9,16 @@ export type StatusMessage = {
 }
 
 type Props = {
-  sync: SyncState | null
-  /** 오른쪽에 띄울 문구. 없으면 비워 둔다 */
+  /** 왼쪽에 띄울 문구. 없으면 비워 둔다 */
   message: StatusMessage | null
   /** 모달이 열린 동안 Tab이 닿지 않게 */
   inert?: boolean
 }
 
-export default function StatusBar({ sync, message, inert }: Props) {
-  const now = useNow(30_000)
-  const parts: string[] = []
-  if (sync?.lastSyncedAt) parts.push(`마지막 동기화 ${relativeTime(sync.lastSyncedAt, now)}`)
-  if (sync?.profile) parts.push(`크롬 프로필 ${sync.profile.displayName ?? sync.profile.name}`)
-
+export default function StatusBar({ message, inert }: Props) {
   return (
     <footer className="statusbar" inert={inert}>
-      <span className="statusbar-info">{parts.join(' · ')}</span>
-      <span className="statusbar-right">
+      <span className="statusbar-left">
         {/* 비어 있어도 자리를 둔다(나중에 들어온 문구를 스크린리더가 읽게) */}
         <span role="status" className={`statusbar-message${message?.error ? ' is-error' : ''}`}>
           {message?.text}
@@ -38,6 +29,8 @@ export default function StatusBar({ sync, message, inert }: Props) {
           </button>
         )}
       </span>
+      {/* 오프라인 배지 자리(DESK-04 v1.1) */}
+      <span className="statusbar-badge" />
     </footer>
   )
 }
