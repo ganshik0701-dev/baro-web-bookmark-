@@ -119,16 +119,16 @@
   - [x] 문서 먼저: 03-api.md `/metadata` 상세(포트 80·443, 접속 시점 IP 검사, 1MB·3초·리다이렉트 3회, 인코딩, 아이콘 규칙), CLAUDE.md 포트 제한, 06-prompts.md(cheerio → node-html-parser)
   - [x] 패키지: `undici` 7(8은 Node 22.19+ 필요해 CI의 Node 20과 안 맞음)·`ipaddr.js`·`node-html-parser`
   - [x] 단위·통합 테스트 82개 통과(`METADATA_LIVE=1`): IP 판정, 제목·아이콘 추출, EUC-KR(헤더·meta), 로컬 서버로 리다이렉트 3회 통과·4회 422, 목적지 내부 IP·포트·localhost 400(그 목적지로 요청 안 감), 3초 422, 5MB 페이지 1MB에서 끊기
-  - [x] 운영용 `fetchMetadata`로 실제 요청 → 400: localhost, 127.0.0.1, [::1], ::ffff:127.0.0.1, 169.254.169.254, 2130706433, 0x7f.1, 0177.0.0.1, 사설 대역, 80·443 외 포트. 127.0.0.1에 테스트 서버를 띄워 둬도 요청 0건
-  - [x] 인터넷 경유 → 400: localtest.me, 10.0.0.1.nip.io 등(DNS가 내부 IP), httpbin.org가 127.0.0.1·169.254.169.254·localtest.me로 리다이렉트. 같은 리다이렉터로 example.com은 성공
+  - [x] 운영용 `fetchMetadata`로 실제 요청 → 400: 루프백·링크 로컬·사설 대역의 여러 표기, 80·443 외 포트. 로컬에 테스트 서버를 띄워 둬도 요청 0건 (입력 목록은 `apps/api/lib/metadata.test.ts`)
+  - [x] 인터넷 경유 → 400: DNS가 내부 IP를 돌려주는 도메인, 외부 리다이렉트가 내부 주소로 가는 경우. 같은 리다이렉트로 공개 사이트는 성공
   - [x] 접속 시점 검사를 일부러 끄면 DNS 이름 경로 7개가 실패하는 것 확인(검사가 실제로 일을 함)
   - [x] 검사 우회 구조: `createMetadataFetcher(정책)`은 테스트 전용, 라우트는 얼린 `PRODUCTION_POLICY`로 만든 `fetchMetadata`만 씀(테스트가 다른 파일에서 쓰이면 실패). 환경 변수 스위치 없음
   - [x] 실제 사이트: github.com, naver.com("네이버"), yes24.com(ks_c_5601-1987=EUC-KR, "예스24"), http→https 리다이렉트
   - [x] `pnpm typecheck` 전체 통과, `next build` 통과, 빌드 서버에서 토큰 없음·잘못된 토큰 401
-  - 참고: 이 PC(Windows)는 OS DNS가 169.254.x 답을 버려 `169.254.169.254.nip.io`는 접속 전에 422. 공개 DNS 답을 운영 IP 검사에 넣어 400 확인
-  - [x] 실제 토큰으로 HTTP 확인(로컬 빌드 서버 `next start`): localhost·127.0.0.1·[::1]·169.254.169.254·2130706433·localtest.me·httpbin 내부 리다이렉트 2종 400 INVALID_URL, `:8080` 400(포트), `javascript:`·빈 주소 400, github·naver·yes24 200 제목 정상
-  - 외부 사이트 테스트(httpbin·localtest.me·nip.io 등 11개)는 `METADATA_LIVE=1`일 때만 돈다(CI·기본 실행은 건너뜀)
-  - [x] 운영(Vercel, `baro-web-bookmark-api.vercel.app`, 응답 헤더 icn1)에서 로컬과 같은 14개 결과 + 토큰 없음 401. Linux라 `169.254.169.254.nip.io`·`10.0.0.1.nip.io`도 400 확인(접속 시점 검사)
+  - 참고: 이 PC(Windows)는 OS DNS가 링크 로컬 답을 버려 해당 테스트는 접속 전에 422. 공개 DNS 답을 운영 IP 검사에 넣어 400 확인
+  - [x] 실제 토큰으로 HTTP 확인(로컬 빌드 서버 `next start`): 내부 주소·숫자 표기·내부 리다이렉트 2종 400 INVALID_URL, `:8080` 400(포트), `javascript:`·빈 주소 400, github·naver·yes24 200 제목 정상
+  - 외부 사이트를 거치는 테스트 11개는 `METADATA_LIVE=1`일 때만 돈다(CI·기본 실행은 건너뜀)
+  - [x] 운영(Vercel, `baro-web-bookmark-api.vercel.app`, 응답 헤더 icn1)에서 로컬과 같은 14개 결과 + 토큰 없음 401. Linux에서는 DNS가 내부 IP를 돌려주는 도메인도 400 확인(접속 시점 검사)
   - 확인용 세션은 로그아웃(204)으로 폐기
 - [x] 속도 제한(공통): 사용자당 분당 120회, `/metadata` 20회, `/sync/chrome` 10회
   - [x] 결정: **Supabase 테이블**에 센다(새 서비스 가입 없음). Upstash·Vercel KV는 지연이 더 낮지만 사용자가 본인 한 명인 학습 프로젝트에 의존성을 늘릴 이유가 약하다
