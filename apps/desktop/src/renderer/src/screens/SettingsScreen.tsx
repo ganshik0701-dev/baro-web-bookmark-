@@ -1,8 +1,9 @@
 // SCR-05 설정 (docs/01-spec.md '설정 화면 규칙', 시안 '8 · 설정').
 // 그리드 본문(.home-body) 위를 덮는 칸이다. 그리드는 뒤에 그대로 있어 검색어·정렬·스크롤이 남는다.
-// 카드 셋: 동기화 · 확장 프로그램(6-(4)에서 채움) · 계정
+// 카드 셋: 동기화 · 확장 프로그램 · 계정
 import { useEffect, useRef, type RefObject } from 'react'
 import type { AuthSession } from '@baro/shared'
+import ExtensionCard from '../components/ExtensionCard'
 import SyncCard from '../components/SyncCard'
 import type { SyncState } from '../types'
 import { SETTINGS_LABELS, SETTINGS_SECTIONS, settingsCardId, type SettingsSection } from '../lib/settings-sections'
@@ -87,6 +88,7 @@ export default function SettingsScreen({ session, sync, waitingLogout, onLogout,
         <h2 id="settings-extension-title" className="settings-card-title">
           {SETTINGS_LABELS.extension}
         </h2>
+        <ExtensionCard />
       </section>
 
       {/* 보드처럼 제목은 보이지 않는다. 스크린리더가 카드 셋을 같은 방식으로 찾도록 안 보이는 제목을 둔다 */}
