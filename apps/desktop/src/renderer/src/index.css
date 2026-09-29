@@ -631,120 +631,197 @@ button:focus-visible {
   white-space: nowrap;
 }
 
+/* 사이드바 + 본문. 모든 화면에서 사이드바는 같은 자리(docs/04-design.md) */
 .home {
   height: 100%;
   display: flex;
-  flex-direction: column;
 }
 
-/* 시안의 탭 줄이 아직 없어서, 탭 줄 아래 구분선을 상단바 아래에 둔다 */
-.topbar {
+/* ---------- SCR-03 사이드바 (docs/01-spec.md '사이드바 규칙', 시안 '3 · 메인 그리드') ---------- */
+
+.sidebar {
+  width: var(--sidebar-width);
   flex-shrink: 0;
+  box-sizing: border-box;
   display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px var(--page-x) 12px;
-  border-bottom: 1px solid var(--border);
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 14px;
+  background: var(--surface);
+  border-right: var(--card-border-width) solid var(--border);
+  overflow-y: auto;
 }
 
-/* 보조 버튼이지만 상단바에서는 기본 버튼 높이(시안 44px) */
-.toolbar-button {
-  height: var(--btn-height);
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.toolbar-button svg {
-  color: var(--text-subtle);
-}
-
-/* SEARCH-01 검색창 (시안 메인 보드). 상단바의 남는 폭을 모두 쓴다 */
-.search {
-  flex-grow: 1;
-  min-width: 0;
+.sidebar-logo {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: var(--input-height);
-  box-sizing: border-box;
-  padding: 0 var(--input-pad-x);
-  background: var(--surface);
-  border: var(--card-border-width) solid var(--border);
-  border-radius: var(--btn-radius);
+  padding: 4px 8px 14px;
 }
 
-.search svg {
+.sidebar-mark {
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
-  color: var(--text-subtle);
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--btn-primary-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.search:focus-within {
-  outline: var(--focus-ring-width) solid var(--accent);
-  outline-offset: 1px;
+.sidebar-name {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
 }
 
-.search-input {
-  flex-grow: 1;
-  min-width: 0;
+.sidebar-add {
+  margin-bottom: 12px;
+  border-radius: var(--control-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.sidebar-views {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sidebar-item {
+  width: 100%;
+  height: var(--btn-height-secondary);
+  padding: 0 10px;
   border: 0;
-  outline: none;
+  border-radius: 8px;
   background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font: inherit;
   font-size: var(--text-body);
-  color: var(--text);
-}
-
-.search-input::placeholder {
-  color: var(--text-subtle);
-}
-
-/* SEARCH-04 정렬 드롭다운 (시안 메인 보드). 펼친 목록은 OS 기본이라 디자인 값이 없다 */
-.sort-select {
-  flex-shrink: 0;
-  height: var(--input-height);
-  padding: 0 var(--input-pad-x);
-  border: var(--card-border-width) solid var(--border);
-  border-radius: var(--btn-radius);
-  background: var(--surface);
-  font: inherit;
-  font-size: var(--btn-font-size);
   color: var(--text);
   cursor: pointer;
 }
 
-.sort-select:focus-visible {
-  outline: var(--focus-ring-width) solid var(--accent);
-  outline-offset: 1px;
+.sidebar-item:hover {
+  background: var(--bg);
 }
 
-/* 기본 버튼('북마크 추가')의 + 아이콘은 글자와 같은 흰색 */
-.button-primary.toolbar-button svg {
+.sidebar-item[aria-pressed='true'] {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.sidebar-count {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.sidebar-item[aria-pressed='true'] .sidebar-count {
   color: inherit;
 }
 
+.sidebar-foot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 10px 0;
+  border-top: var(--card-border-width) solid var(--border);
+}
+
+.sidebar-sync {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sidebar-sync-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-sync-time {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sidebar-sync-profile {
+  font-size: var(--text-small);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-icon-button {
+  width: var(--btn-height);
+  height: var(--btn-height);
+  flex-shrink: 0;
+  border: var(--btn-border-width) solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--surface);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.sidebar-icon-button:disabled {
+  color: var(--text-subtle);
+  cursor: default;
+}
+
+/* 임시(6단계 전까지): '설정' 버튼 + 위로 열리는 계정 패널 */
 .account {
   position: relative;
 }
 
 .account-button {
-  width: 44px;
-  height: 44px;
-  border: var(--btn-border-width) solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: var(--btn-height);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-body);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.account-initial {
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: var(--border);
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .account-panel {
   position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
+  bottom: calc(100% + 8px);
+  left: 0;
   z-index: 10;
   width: 260px;
   padding: var(--card-pad);
@@ -770,6 +847,83 @@ button:focus-visible {
 
 .account-panel .button-secondary {
   align-self: flex-start;
+}
+
+/* ---------- SCR-03 본문 ---------- */
+
+.home-body {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 본문 위 검색·정렬 줄 */
+.home-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: var(--page-top) var(--page-x) 0;
+}
+
+/* SEARCH-01 검색창 (시안 '3 · 메인 그리드'). 줄의 남는 폭을 모두 쓴다 */
+.search {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--input-height);
+  box-sizing: border-box;
+  padding: 0 var(--input-pad-x);
+  background: var(--surface);
+  border: var(--card-border-width) solid var(--border-strong);
+  border-radius: var(--control-radius);
+}
+
+.search svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.search:focus-within {
+  outline: var(--focus-ring-width) solid var(--accent);
+  outline-offset: 1px;
+}
+
+.search-input {
+  flex-grow: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-body);
+  color: var(--text);
+}
+
+.search-input::placeholder {
+  color: var(--text-subtle);
+}
+
+/* SEARCH-04 정렬 드롭다운. 펼친 목록은 OS 기본이라 디자인 값이 없다 */
+.sort-select {
+  flex-shrink: 0;
+  height: var(--input-height);
+  padding: 0 var(--input-pad-x);
+  border: var(--card-border-width) solid var(--border-strong);
+  border-radius: var(--control-radius);
+  background: var(--surface);
+  font: inherit;
+  font-size: var(--btn-font-size);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.sort-select:focus-visible {
+  outline: var(--focus-ring-width) solid var(--accent);
+  outline-offset: 1px;
 }
 
 .home-main {

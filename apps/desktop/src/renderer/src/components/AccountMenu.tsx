@@ -1,4 +1,5 @@
-// 상단바 계정 버튼과 작은 메뉴 (SCR-03). SCR-05 설정 화면이 생기면 그리로 옮긴다.
+// 사이드바 아래 '설정' 버튼과 작은 계정 패널 (SCR-03).
+// 임시다: 설정 화면(SCR-05, 디자인 교체 6단계)이 생기면 '설정'은 그 화면을 열고, 이 패널은 없앤다.
 // 방향키로 고르는 메뉴(role="menu")가 아니라 '펼치기' 버튼이다. 안에는 글과 로그아웃 버튼 하나뿐이라서다
 import { useEffect, useRef, useState } from 'react'
 import type { AuthSession } from '@baro/shared'
@@ -40,12 +41,14 @@ export default function AccountMenu({ session, waitingLogout, onLogout }: Props)
         ref={buttonRef}
         type="button"
         className="account-button"
-        aria-label="계정"
         aria-expanded={open}
         aria-controls="account-panel"
         onClick={() => setOpen((v) => !v)}
       >
-        {initial}
+        <span className="account-initial" aria-hidden="true">
+          {initial}
+        </span>
+        설정
       </button>
       {open && (
         <div id="account-panel" className="account-panel" role="group" aria-label="계정">

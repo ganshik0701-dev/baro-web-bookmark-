@@ -1,5 +1,5 @@
 // 하단 상태바 (SCR-03). 왼쪽은 '마지막 동기화 · 크롬 프로필', 오른쪽은 지금 알릴 것 하나.
-import { useEffect, useState } from 'react'
+import { useNow } from '../lib/use-now'
 import { relativeTime } from '../lib/relative-time'
 import type { SyncState } from '../types'
 
@@ -16,16 +16,6 @@ type Props = {
   message: StatusMessage | null
   /** 모달이 열린 동안 Tab이 닿지 않게 */
   inert?: boolean
-}
-
-/** '3분 전'이 멈춰 있지 않게 30초마다 다시 그린다 */
-function useNow(intervalMs: number): number {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), intervalMs)
-    return () => window.clearInterval(id)
-  }, [intervalMs])
-  return now
 }
 
 export default function StatusBar({ sync, message, inert }: Props) {

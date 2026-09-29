@@ -1,10 +1,10 @@
-// SCR-03 메인 그리드 (docs/01-spec.md '메인 그리드 규칙', 시안 project/Main.dc.html).
-// 이번 구성: 상단바(동기화·계정) + 그리드 + 상태바. 검색·정렬·추가·그룹 탭은 해당 기능 때 붙인다.
+// SCR-03 메인 그리드 (docs/01-spec.md '메인 그리드 규칙'·'사이드바 규칙', 시안 '3 · 메인 그리드').
+// 왼쪽 사이드바 + 본문(검색·정렬 줄, 그리드, 상태바).
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { AuthSession, AuthStatus, Bookmark } from '@baro/shared'
-import AccountMenu from '../components/AccountMenu'
 import BookmarkModal, { type BookmarkModalMode } from '../components/BookmarkModal'
 import BookmarkGrid from '../components/BookmarkGrid'
+import Sidebar from '../components/Sidebar'
 import StatusBar, { type StatusMessage } from '../components/StatusBar'
 import { usePinMutation, useBookmarks, useSortSetting } from '../lib/queries'
 import { useSortSaver } from '../lib/use-sort-saver'
@@ -12,6 +12,7 @@ import { SORT_LABELS, SORT_OPTIONS, sortBookmarks, toSortOption, type SortOption
 import { buildSearchIndex, filterBookmarks, searchTerms } from '../lib/search'
 import { tileLabel } from '../lib/tile'
 import { usePendingDelete } from '../lib/use-pending-delete'
+import { filterView, VIEW_LABELS, viewCounts, type View } from '../lib/view'
 import type { SyncState } from '../types'
 import { useScreenTitle } from './use-screen-title'
 
@@ -54,7 +55,13 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
   const searchInput = useRef<HTMLInputElement>(null)
   const deferredQuery = useDeferredValue(query)
   const terms = useMemo(() => searchTerms(deferredQuery), [deferredQuery])
-  const searchIndex = useMemo(() => buildSearchIndex(list.data ?? []), [list.data])
+  // 사이드바의 전체 / 고정됨 / 최근 추가. 켜면 '전체', 메모리에만 둔다. 순서: 거르기 → 검색 → 정렬
+  const [view, setView] = useState<View>('all')
+  // '최근 30일'의 기준 시각. 목록이 바뀔 때 다시 잡는다(켜 둔 채 날이 바뀌어도 새로 받을 때 맞춰진다)
+  const viewNow = useMemo(() => Date.now(), [list.data])
+  const inViewList = useMemo(() => filterView(list.data ?? [], view, viewNow), [list.data, view, viewNow])
+  const counts = useMemo(() => viewCounts(list.data ?? [], deletion.hidden, viewNow), [list.data, deletion.hidden, viewNow])
+  const searchIndex = useMemo(() => buildSearchIndex(inViewList), [inViewList])
   // SEARCH-04. 캐시는 서버 기본 순서 그대로 두고, 화면에 그릴 때만 고른 정렬로 다시 센다(거른 뒤 정렬).
   // SEARCH-05. 켤 때 저장된 정렬로 시작한다(custom·모르는 값·불러오기 실패면 최근 추가순, 서버 값은 덮어쓰지 않음).
   // 고르면 화면은 바로 바뀌고 저장은 뒤에서(useSortSaver). 실패해도 이번 실행 동안은 고른 정렬 그대로
@@ -70,6 +77,8 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
   const results = useMemo(() => sortBookmarks(filterBookmarks(searchIndex, terms), sort), [searchIndex, terms, sort])
   const searching = terms.length > 0
   const noResults = searching && results.every((b) => deletion.hidden.has(b.id))
+  // 고른 항목(고정됨·최근 추가)이 비었을 때. 검색 중이면 위의 '결과 0개'가 먼저다
+  const viewEmpty = !searching && VIEW_LABELS[view].empty !== null && counts[view] === 0
   const clearSearch = () => {
     setQuery('')
     searchInput.current?.focus()
@@ -149,7 +158,24 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
   return (
     <div className="home">
       {/* 모달이 열린 동안 뒤 화면은 inert: Tab·클릭이 닿지 않는다(보이지 않는 타일이 열리지 않게) */}
-      <header className="topbar" inert={modal !== null}>
+      <Sidebar
+        view={view}
+        counts={counts}
+        onView={setView}
+        onAdd={() => openModal({ kind: 'add' })}
+        sync={sync}
+        syncing={syncing}
+        session={session}
+        waitingLogout={waitingLogout}
+        onLogout={onLogout}
+        inert={modal !== null}
+      />
+
+      <div className="home-body">
+      <div className="home-toolbar" inert={modal !== null}>
+        <h1 ref={headingRef} tabIndex={-1} className="visually-hidden">
+          북마크
+        </h1>
         <label htmlFor="home-search" className="visually-hidden">
           북마크 검색
         </label>
@@ -182,34 +208,16 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
             </option>
           ))}
         </select>
-        <h1 ref={headingRef} tabIndex={-1} className="visually-hidden">
-          북마크
-        </h1>
-        <button
-          type="button"
-          className="button-secondary toolbar-button"
-          onClick={() => void window.baro.syncNow()}
-          disabled={syncing}
-        >
-          <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-            <path d="M16 5.5A7 7 0 1 0 17 10" />
-            <path d="M16 2v4h-4" />
-          </svg>
-          {syncing ? '동기화 중…' : '동기화'}
-        </button>
-        <button type="button" className="button-primary toolbar-button" onClick={() => openModal({ kind: 'add' })}>
-          <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-            <path d="M10 4v12M4 10h12" />
-          </svg>
-          북마크 추가
-        </button>
-        <AccountMenu session={session} waitingLogout={waitingLogout} onLogout={onLogout} />
-      </header>
+      </div>
 
       <main className="home-main" inert={modal !== null}>
         {list.data && !sortSetting.isPending ? (
           list.data.length > 0 ? (
-            noResults ? (
+            viewEmpty ? (
+              <div className="home-state">
+                <p>{VIEW_LABELS[view].empty}</p>
+              </div>
+            ) : noResults ? (
               <div className="home-state">
                 <p>‘{deferredQuery.trim()}’와 맞는 북마크가 없습니다</p>
                 <button type="button" className="button-secondary" onClick={clearSearch}>
@@ -220,7 +228,7 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
               <BookmarkGrid
                 bookmarks={results}
                 hidden={deletion.hidden}
-                sortTitle={SORT_LABELS[sort].section}
+                sortTitle={VIEW_LABELS[view].section ?? SORT_LABELS[sort].section}
                 searching={searching}
                 onOpen={open}
                 onMenu={openMenu}
@@ -249,6 +257,7 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
       </main>
 
       <StatusBar sync={sync} message={message} inert={modal !== null} />
+      </div>
 
       {modal && (
         <BookmarkModal
