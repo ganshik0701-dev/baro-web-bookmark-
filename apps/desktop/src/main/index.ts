@@ -56,9 +56,12 @@ async function callApi<T>(path: `/${string}`): Promise<ApiSuccess<T> | ApiFailur
 // 창 하나만 띄운다. 트레이·전역 단축키(DESK-05, DESK-06)는 v1.1에서 여기에 붙는다.
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
+    // 크기는 모두 창 안쪽(내용) 폭·높이다. 테두리 두께는 Windows 테마·배율마다 달라 기준으로 쓰지 않는다
+    // (docs/04-design.md '좁은 창'. 최소 420px에서 그리드 2열, 사이드바는 저절로 접힌다)
+    useContentSize: true,
     width: 1100,
     height: 720,
-    minWidth: 800,
+    minWidth: 420,
     minHeight: 560,
     backgroundColor: '#F7F5F0',
     show: false,

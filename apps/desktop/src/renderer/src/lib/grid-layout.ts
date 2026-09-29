@@ -1,28 +1,45 @@
-// 그리드 영역 폭 → 열 수·아이콘 크기 (docs/04-design.md '그리드'). 사이드바가 생겨 창 너비가 아니라 영역 폭으로 정한다.
+// 그리드 영역 폭 → 열 수·아이콘 크기 (docs/04-design.md '그리드').
+// 기준점 표 대신 칸 최소 너비로 계산한다: 폭이 줄면 한 열씩 줄고(최소 2열), 줄어든 만큼 행이 늘어난다.
 // CSS 변수는 @media 조건에 쓸 수 없어서 tokens.css의 값을 JS가 읽어 정한다.
-// 고칠 곳은 tokens.css 하나다(--grid-bp-*, --grid-cols-*, --tile-size-*).
+// 고칠 곳은 tokens.css 하나다(--grid-cell-min, --grid-cols-min/-max, --tile-size-min/-max/-ratio, --grid-gap-col).
 
 export type GridTokens = {
-  bpSm: number
-  bpMd: number
-  cols: { sm: number; md: number; lg: number }
-  tile: { sm: number; md: number; lg: number }
+  /** 한 칸의 최소 폭(px) */
+  cellMin: number
+  /** 칸 사이 간격(px). --grid-gap-col */
+  gap: number
+  colsMin: number
+  colsMax: number
+  tileMin: number
+  tileMax: number
+  /** 아이콘 = 칸 폭 × 이 값(범위 안에서) */
+  tileRatio: number
 }
 
-export type GridLayout = { size: 'sm' | 'md' | 'lg'; cols: number; tile: number }
+export type GridLayout = { cols: number; tile: number }
 
-/** 토큰을 못 읽었을 때(값 오타 등)의 기본값. docs/04-design.md 그리드 표와 같다 */
+/** 토큰을 못 읽었을 때(값 오타 등)의 기본값. docs/04-design.md 그리드 토큰 표와 같다 */
 export const DEFAULT_GRID: GridTokens = {
-  bpSm: 640,
-  bpMd: 1040,
-  cols: { sm: 6, md: 8, lg: 10 },
-  tile: { sm: 56, md: 64, lg: 72 }
+  cellMin: 100,
+  gap: 8,
+  colsMin: 2,
+  colsMax: 10,
+  tileMin: 56,
+  tileMax: 72,
+  tileRatio: 0.57
 }
 
-/** 기준점 '이하'면 그 배치. ~640 → sm, 641~1040 → md, 1041~ → lg (그리드 영역 폭) */
+const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n))
+
+/**
+ * 열 수 = ⌊(폭 + 간격) ÷ (칸 최소 너비 + 간격)⌋ 을 열 수 범위로 자른 값.
+ * 아이콘 = 칸 폭 × 비율을 반올림해 아이콘 범위로 자른 값(열이 적어 칸이 넓어도 최대 크기를 넘지 않는다)
+ */
 export function pickLayout(width: number, t: GridTokens): GridLayout {
-  const size = width <= t.bpSm ? 'sm' : width <= t.bpMd ? 'md' : 'lg'
-  return { size, cols: t.cols[size], tile: t.tile[size] }
+  const cols = clamp(Math.floor((width + t.gap) / (t.cellMin + t.gap)), t.colsMin, t.colsMax)
+  const cell = (width - t.gap * (cols - 1)) / cols
+  const tile = clamp(Math.round(cell * t.tileRatio), t.tileMin, t.tileMax)
+  return { cols, tile }
 }
 
 /** '56px'·'8' 같은 값을 숫자로. 양수가 아니면 대신 fallback */
@@ -31,22 +48,23 @@ function num(raw: string, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? n : fallback
 }
 
-/** tokens.css의 그리드 토큰을 읽는다. 값이 이상하면 그 값만 기본값으로 */
+/** tokens.css의 그리드 토큰을 읽는다. 값이 이상하면 그 값만 기본값으로. 범위가 뒤집혀 있으면 그 범위를 기본값으로 */
 export function readGridTokens(style: Pick<CSSStyleDeclaration, 'getPropertyValue'>): GridTokens {
   const v = (name: string) => style.getPropertyValue(name)
   const d = DEFAULT_GRID
+  let colsMin = Math.round(num(v('--grid-cols-min'), d.colsMin))
+  let colsMax = Math.round(num(v('--grid-cols-max'), d.colsMax))
+  if (colsMin > colsMax) [colsMin, colsMax] = [d.colsMin, d.colsMax]
+  let tileMin = num(v('--tile-size-min'), d.tileMin)
+  let tileMax = num(v('--tile-size-max'), d.tileMax)
+  if (tileMin > tileMax) [tileMin, tileMax] = [d.tileMin, d.tileMax]
   return {
-    bpSm: num(v('--grid-bp-sm'), d.bpSm),
-    bpMd: num(v('--grid-bp-md'), d.bpMd),
-    cols: {
-      sm: Math.round(num(v('--grid-cols-sm'), d.cols.sm)),
-      md: Math.round(num(v('--grid-cols-md'), d.cols.md)),
-      lg: Math.round(num(v('--grid-cols-lg'), d.cols.lg))
-    },
-    tile: {
-      sm: num(v('--tile-size-sm'), d.tile.sm),
-      md: num(v('--tile-size-md'), d.tile.md),
-      lg: num(v('--tile-size-lg'), d.tile.lg)
-    }
+    cellMin: num(v('--grid-cell-min'), d.cellMin),
+    gap: num(v('--grid-gap-col'), d.gap),
+    colsMin,
+    colsMax,
+    tileMin,
+    tileMax,
+    tileRatio: num(v('--tile-size-ratio'), d.tileRatio)
   }
 }

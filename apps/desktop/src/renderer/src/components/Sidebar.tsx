@@ -1,7 +1,7 @@
 // 메인 그리드의 왼쪽 사이드바 (docs/01-spec.md '사이드바 규칙', 시안 '3 · 메인 그리드').
 // 로고 / 북마크 추가 / 전체·고정됨·최근 추가 / (아래) 동기화 시각·지금 동기화·설정.
 // 그룹 목록과 "그룹" 제목은 두지 않는다(GROUP-01~02, v1.1).
-// 접으면 64px에 아이콘만 남는다(누를 때만 접힌다. 글자·개수는 aria-label과 title로)
+// 접으면 64px에 아이콘만 남는다(글자·개수는 aria-label과 title로). 창이 좁으면 저절로 접히고, 그동안 펴기 버튼은 비활성
 import { useEffect, useRef, type ReactNode } from 'react'
 import type { AuthSession } from '@baro/shared'
 import { relativeTime } from '../lib/relative-time'
@@ -21,6 +21,8 @@ type Props = {
   waitingLogout: boolean
   onLogout: () => void
   collapsed: boolean
+  /** 창이 좁아 접혀 있다(펼 수 없다) */
+  narrow: boolean
   onToggle: () => void
   /** 모달이 열린 동안 Tab·클릭이 닿지 않게 */
   inert?: boolean
@@ -62,7 +64,7 @@ function Icon({ children, size = 18 }: { children: ReactNode; size?: number }) {
 }
 
 export default function Sidebar(props: Props) {
-  const { view, counts, onView, onAdd, sync, syncing, session, waitingLogout, onLogout, collapsed, onToggle, inert } = props
+  const { view, counts, onView, onAdd, sync, syncing, session, waitingLogout, onLogout, collapsed, narrow, onToggle, inert } = props
   const now = useNow(30_000)
   const syncedAt = sync?.lastSyncedAt ? `${relativeTime(sync.lastSyncedAt, now)} 동기화` : '아직 동기화하지 않음'
   const profile = sync?.profile ? `크롬 프로필 ${sync.profile.displayName ?? sync.profile.name}` : null
@@ -85,8 +87,9 @@ export default function Sidebar(props: Props) {
       type="button"
       className="sidebar-icon-button sidebar-toggle"
       aria-label={collapsed ? '사이드바 펴기' : '사이드바 접기'}
-      title={collapsed ? '사이드바 펴기' : '사이드바 접기'}
+      title={narrow ? '창이 좁아 펼 수 없습니다' : collapsed ? '사이드바 펴기' : '사이드바 접기'}
       aria-expanded={!collapsed}
+      disabled={narrow}
       onClick={() => {
         refocusToggle.current = true
         onToggle()

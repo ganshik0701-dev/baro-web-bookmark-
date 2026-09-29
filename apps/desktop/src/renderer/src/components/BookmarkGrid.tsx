@@ -28,7 +28,7 @@ export default function BookmarkGrid({ bookmarks, hidden, sortTitle, onOpen, onM
   const vars = { '--grid-cols': layout.cols, '--tile-size': `${layout.tile}px` } as CSSProperties
 
   return (
-    <div ref={areaRef} className="grid-area" style={vars} data-grid-size={layout.size}>
+    <div ref={areaRef} className="grid-area" style={vars} data-grid-cols={layout.cols}>
       {pinned.length > 0 && (
         <section className="grid-section" aria-labelledby="grid-pinned">
           <h2 id="grid-pinned" className="grid-section-title">

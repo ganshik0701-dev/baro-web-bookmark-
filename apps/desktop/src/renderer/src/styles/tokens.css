@@ -60,6 +60,8 @@
   /* ── 화면 여백 ──────────────────────────────────── */
   --sidebar-width: 248px;
   --sidebar-width-collapsed: 64px;
+  /* 창 안쪽 폭이 이보다 좁으면 사이드바가 저절로 접힌다(편 채 그리드 3열 이상. docs/04-design.md '좁은 창'). JS가 읽는다 */
+  --sidebar-auto-collapse: 650px;
   --page-x: 32px;
   --page-top: 22px;
   --section-gap: 22px;
@@ -103,22 +105,20 @@
   --card-border-width: 1px;
 
   /* ── 그리드 (SCR-03) ────────────────────────────── */
-  /* 기준점은 그리드 영역 폭(창 − 사이드바 − 여백)이다. px로만 쓴다. CSS가 아니라 JS가 읽어서 열을 정한다 */
-  --grid-bp-sm: 640px;
-  --grid-bp-md: 1040px;
-  --grid-cols-sm: 6;
-  --grid-cols-md: 8;
-  --grid-cols-lg: 10;
-  --tile-size-sm: 56px;
-  --tile-size-md: 64px;
-  --tile-size-lg: 72px;
+  /* 열 수는 그리드 영역 폭 ÷ 칸 최소 너비로 계산한다(docs/04-design.md '그리드'). px로만 쓴다. CSS가 아니라 JS가 읽는다 */
+  --grid-cell-min: 100px;
+  --grid-cols-min: 2;
+  --grid-cols-max: 10;
+  /* 아이콘 = 칸 폭 × 비율, 범위 안에서 */
+  --tile-size-min: 56px;
+  --tile-size-max: 72px;
+  --tile-size-ratio: 0.57;
   --tile-radius: 18px;
   --tile-letter-ratio: 0.4;
   --tile-favicon-ratio: 0.5;
   --grid-gap-row: 18px;
   --grid-gap-col: 8px;
   --tile-label-gap: 8px;
-  --tile-label-max: 96px;
 
   /* ── 그 밖 ──────────────────────────────────────── */
   --focus-ring-width: 2px;

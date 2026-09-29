@@ -1,4 +1,4 @@
-// SCR-03 그리드의 순수 함수: 타일 글자·색·파비콘 주소, 창 너비별 배치, 상대 시각, 목록 순서
+// SCR-03 그리드의 순수 함수: 타일 글자·색·파비콘 주소, 그리드 영역 폭별 배치, 상대 시각, 목록 순서
 import { describe, expect, it } from 'vitest'
 import type { Bookmark } from '@baro/shared'
 import { DEFAULT_GRID, pickLayout, readGridTokens } from '../src/renderer/src/lib/grid-layout'
@@ -77,17 +77,20 @@ describe('faviconUrl', () => {
   })
 })
 
-describe('pickLayout (docs/04-design.md 그리드 표)', () => {
+describe('pickLayout (docs/04-design.md 그리드 계산)', () => {
   it.each([
-    [488, 'sm', 6, 56],
-    [640, 'sm', 6, 56],
-    [641, 'md', 8, 64],
-    [958, 'md', 8, 64],
-    [1040, 'md', 8, 64],
-    [1041, 'lg', 10, 72],
-    [1400, 'lg', 10, 72]
-  ])('그리드 영역 폭 %i → %s %i열 %ipx', (w, size, cols, tile) => {
-    expect(pickLayout(w, DEFAULT_GRID)).toEqual({ size, cols, tile })
+    // [그리드 영역 폭, 열, 아이콘]
+    [100, 2, 56], // 아주 좁아도 2열(최소), 아이콘은 최소 크기
+    [277, 2, 72], // 최소 창 420px(접힘). 칸이 넓어도 아이콘은 최대 72px
+    [315, 2, 72], // 3열 바로 아래
+    [316, 3, 57], // 3열이 되는 가장 좁은 폭(칸 100px)
+    [473, 4, 64], // 800px 창, 사이드바 편 채
+    [953, 8, 64], // 1280px 창(보드), 편 채 → 8열 64px
+    [973, 9, 58], // 1300px 창, 편 채
+    [1157, 10, 62], // 1300px 창, 접힘
+    [2000, 10, 72] // 아주 넓어도 10열(최대), 아이콘은 최대 크기
+  ])('그리드 영역 폭 %i → %i열 %ipx', (w, cols, tile) => {
+    expect(pickLayout(w, DEFAULT_GRID)).toEqual({ cols, tile })
   })
 })
 
@@ -97,22 +100,27 @@ describe('readGridTokens', () => {
   it('tokens.css 값을 숫자로 읽는다', () => {
     const t = readGridTokens(
       style({
-        '--grid-bp-sm': ' 700px',
-        '--grid-bp-md': '1000px',
-        '--grid-cols-sm': '5',
-        '--grid-cols-md': '7',
-        '--grid-cols-lg': '12',
-        '--tile-size-sm': '50px',
-        '--tile-size-md': '60px',
-        '--tile-size-lg': '80px'
+        '--grid-cell-min': ' 120px',
+        '--grid-gap-col': '10px',
+        '--grid-cols-min': '3',
+        '--grid-cols-max': '12',
+        '--tile-size-min': '50px',
+        '--tile-size-max': '80px',
+        '--tile-size-ratio': '0.5'
       })
     )
-    expect(t).toEqual({ bpSm: 700, bpMd: 1000, cols: { sm: 5, md: 7, lg: 12 }, tile: { sm: 50, md: 60, lg: 80 } })
-    expect(pickLayout(1001, t)).toEqual({ size: 'lg', cols: 12, tile: 80 })
+    expect(t).toEqual({ cellMin: 120, gap: 10, colsMin: 3, colsMax: 12, tileMin: 50, tileMax: 80, tileRatio: 0.5 })
+    // (650 + 10) ÷ (120 + 10) = 5.07 → 5열, 칸 (650 − 40) ÷ 5 = 122 → 61px
+    expect(pickLayout(650, t)).toEqual({ cols: 5, tile: 61 })
   })
 
   it('없거나 오타인 값은 그 값만 기본값으로', () => {
-    const t = readGridTokens(style({ '--grid-cols-md': 'eight', '--tile-size-lg': '-3px' }))
+    const t = readGridTokens(style({ '--grid-cols-max': 'ten', '--tile-size-max': '-3px' }))
+    expect(t).toEqual(DEFAULT_GRID)
+  })
+
+  it('범위가 뒤집혀 있으면 그 범위를 기본값으로', () => {
+    const t = readGridTokens(style({ '--grid-cols-min': '12', '--grid-cols-max': '4', '--tile-size-min': '90px' }))
     expect(t).toEqual(DEFAULT_GRID)
   })
 })
