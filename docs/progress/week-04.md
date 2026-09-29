@@ -1,0 +1,112 @@
+## 4주차 — 북마크 API + 확장 (완료)
+
+- [x] API 인증(앱 토큰): JWKS(ES256)로 서명 직접 검증, `withAuth` (`baro_` 토큰은 자리만)
+  - [x] 위조 ES256(진짜 kid)·HS256·alg none·형식 오류·서명 한 글자 변조 → 401 INVALID_TOKEN, 헤더 없음·Basic → 401 UNAUTHORIZED
+  - [x] 실제 토큰 헤더 ES256 + JWKS와 같은 kid, `GET /me` 200 (개발 서버 반복 호출 약 70~120ms)
+- [x] DB 접근 방식 C: `withUserDb` (트랜잭션마다 role=authenticated + request.jwt.claims, `current_user`·`auth.uid()` 확인 가드)
+  - [x] `lib/db.test.ts` 4개 통과(트랜잭션 풀러 6543): 역할 전환·가드 동작·RLS 0행·트랜잭션 후 권한 원복
+  - [x] `DATABASE_POOLER_URL` .env·Vercel 입력
+- [x] 운영(Vercel)에서 `GET /me` 200, 서명 변조 토큰 401 INVALID_TOKEN
+  - Vercel `SUPABASE_URL` 문제로 처음엔 모든 인증 요청이 500 → 원인 불명, 변수를 지우고 다시 넣어 해결
+- [x] Vercel 함수 리전 `icn1`(서울) 고정 (`apps/api/vercel.json`)
+  - 대시보드 설정만으로는 `iad1`(미국 동부) 그대로였음 → 코드로 고정, 응답 헤더 `icn1::icn1` 확인
+  - 운영 `/me` 반복 호출 약 1.5초(iad1) → 약 60ms(icn1)
+- [x] packages/shared: Zod 스키마 (BM-01~05용만. zod 3.25는 이미 설치돼 있었음)
+  - [x] `httpUrl`(https:// 자동 부착, http/https만), `normalizeUrl`, `createBookmarkInput`(strict, allowDuplicate 없음), `updateBookmarkInput`, `bookmarkId`, `Bookmark` 타입
+  - [x] 단위 테스트 45개 통과 (`pnpm --filter @baro/shared test`): 위험 스킴 8종 거부, 정규화, 필드 규칙
+- [x] BM-01~05: `/bookmarks` CRUD, URL 정규화·중복 검사 (`lib/bookmarks.ts`, 라우트 2개)
+  - [x] 통합 테스트 8개(가짜 사용자 A·B, 실제 DB): 남의 북마크 GET·PATCH·DELETE 404, 남의 groupId GROUP_NOT_FOUND, 같은 URL 409 + existingId, 동시 추가 5개 → 1개만 생성, 동시 수정 경쟁 → 409(catch 경로 실제 통과 확인)
+  - [x] 실제 토큰 HTTP 확인(로컬 개발 서버): 위 항목 + `javascript:` 400 INVALID_URL, `allowDuplicate` 400, JSON 아님 400, id 형식 오류 404, 목록에 남의 것 없음
+  - [x] 운영(Vercel) 확인: POST 201 → 목록에 있음 → DELETE 204 → 다시 GET 404, 확인용 북마크 DB에 0개 (응답 헤더 icn1::icn1)
+- [x] `/metadata` + SSRF 차단 (`lib/metadata.ts`, 라우트 1개. 속도 제한은 아래 공통 항목으로 분리)
+  - [x] 문서 먼저: 03-api.md `/metadata` 상세(포트 80·443, 접속 시점 IP 검사, 1MB·3초·리다이렉트 3회, 인코딩, 아이콘 규칙), CLAUDE.md 포트 제한, 06-prompts.md(cheerio → node-html-parser)
+  - [x] 패키지: `undici` 7(8은 Node 22.19+ 필요해 CI의 Node 20과 안 맞음)·`ipaddr.js`·`node-html-parser`
+  - [x] 단위·통합 테스트 82개 통과(`METADATA_LIVE=1`): IP 판정, 제목·아이콘 추출, EUC-KR(헤더·meta), 로컬 서버로 리다이렉트 3회 통과·4회 422, 목적지 내부 IP·포트·localhost 400(그 목적지로 요청 안 감), 3초 422, 5MB 페이지 1MB에서 끊기
+  - [x] 운영용 `fetchMetadata`로 실제 요청 → 400: 루프백·링크 로컬·사설 대역의 여러 표기, 80·443 외 포트. 로컬에 테스트 서버를 띄워 둬도 요청 0건 (입력 목록은 `apps/api/lib/metadata.test.ts`)
+  - [x] 인터넷 경유 → 400: DNS가 내부 IP를 돌려주는 도메인, 외부 리다이렉트가 내부 주소로 가는 경우. 같은 리다이렉트로 공개 사이트는 성공
+  - [x] 접속 시점 검사를 일부러 끄면 DNS 이름 경로 7개가 실패하는 것 확인(검사가 실제로 일을 함)
+  - [x] 검사 우회 구조: `createMetadataFetcher(정책)`은 테스트 전용, 라우트는 얼린 `PRODUCTION_POLICY`로 만든 `fetchMetadata`만 씀(테스트가 다른 파일에서 쓰이면 실패). 환경 변수 스위치 없음
+  - [x] 실제 사이트: github.com, naver.com("네이버"), yes24.com(ks_c_5601-1987=EUC-KR, "예스24"), http→https 리다이렉트
+  - [x] `pnpm typecheck` 전체 통과, `next build` 통과, 빌드 서버에서 토큰 없음·잘못된 토큰 401
+  - 참고: 이 PC(Windows)는 OS DNS가 링크 로컬 답을 버려 해당 테스트는 접속 전에 422. 공개 DNS 답을 운영 IP 검사에 넣어 400 확인
+  - [x] 실제 토큰으로 HTTP 확인(로컬 빌드 서버 `next start`): 내부 주소·숫자 표기·내부 리다이렉트 2종 400 INVALID_URL, `:8080` 400(포트), `javascript:`·빈 주소 400, github·naver·yes24 200 제목 정상
+  - 외부 사이트를 거치는 테스트 11개는 `METADATA_LIVE=1`일 때만 돈다(CI·기본 실행은 건너뜀)
+  - [x] 운영(Vercel, `baro-web-bookmark-api.vercel.app`, 응답 헤더 icn1)에서 로컬과 같은 14개 결과 + 토큰 없음 401. Linux에서는 DNS가 내부 IP를 돌려주는 도메인도 400 확인(접속 시점 검사)
+  - 확인용 세션은 로그아웃(204)으로 폐기
+- [x] 속도 제한(공통): 사용자당 분당 120회, `/metadata` 20회, `/sync/chrome` 10회
+  - [x] 결정: **Supabase 테이블**에 센다(새 서비스 가입 없음). Upstash·Vercel KV는 지연이 더 낮지만 사용자가 본인 한 명인 학습 프로젝트에 의존성을 늘릴 이유가 약하다
+  - [x] 결정: 앱 토큰·확장 토큰은 **같은 사용자면 한 카운터를 나눠 쓴다**(03-api.md의 '사용자당' 그대로)
+  - [x] 문서 먼저: 03-api.md '속도 제한' 절, 02-db.md '속도 제한 (007)', CLAUDE.md(예외가 둘로 — 각각 전용 역할로 `private` 함수 하나)
+  - [x] `007_rate_limits.sql`: `rate_limits` 표(PK `(user_id,bucket,window_start)`), 전용 역할 `baro_rate_limiter`, `private.hit_rate_limit(uuid, text[])`
+    - [x] 실제 DB `BEGIN…ROLLBACK` 리허설 → 이력(`schema_migrations`)에 007 기록하며 적용
+    - 리허설에서 잡은 것: `returns table (bucket, count)`로 두면 PL/pgSQL이 그 이름을 변수로 잡아 컬럼 참조와 충돌한다(42702) → `hit_bucket`·`hit_count`로
+    - 권한 분리 확인: 전용 역할은 `rate_limits` 직접 읽기도, 다른 `private` 함수(`resolve_api_token`) 호출도 거절. `authenticated`는 `hit_rate_limit`을 못 부르고 표도 0행(RLS 켜고 정책 없음)
+  - [x] 구현: `lib/rate-limit.ts` + `withAuth(…, { rateBucket })`. 인증 통과 뒤·**라우트 트랜잭션 밖**에서 센다(요청이 실패해 롤백돼도 카운트가 남게)
+    - 고정 윈도(분 단위). 한 요청이 `global`+해당 버킷을 **왕복 1회**로 함께 올린다
+    - 세지 못하면 막지 않는다(fail-open). 속도 제한 고장으로 서비스 전체가 멈추는 편이 더 나쁘다
+    - drizzle이 JS 배열을 파라미터로 펼쳐 `($2,$3)::text[]`가 되는 문제 → `sql.param(buckets)`로 감쌈
+  - [x] 테스트 7개: 한도 초과·엔드포인트 버킷 우선·두 행 생성·사용자당 합산·fail-open·전용 역할이 다른 표 접근 거절
+  - [x] 실제 토큰 HTTP 확인(로컬 개발 서버, 테스트 계정): `/metadata` **20회 통과 → 21회째부터 429**, `retry-after` 헤더와 `details.bucket` 정상, 다음 분에 풀림, `/me`는 metadata 한도와 무관, `global`을 120으로 채우면 `/me`·`/bookmarks`·`/tokens` 모두 429
+  - [x] 로컬 확인 뒤 정리: `rate_limits` 0행, 확인용 세션 로그아웃(204)
+  - [x] **운영(Vercel) 확인**: `/metadata` 20회 통과 → 21회째부터 **429**, `Retry-After` 헤더·`details.bucket` 정상(배포 전후 두 번 확인)
+  - [x] 지연 측정에서 설계 오류를 잡음: '왕복 1회'로 설계했는데 `set local role`이 트랜잭션을 요구해 실제로는 **4왕복**이었다
+    - 로컬→서울 DB 실측 **56ms → 32ms**(한 문장으로 바꾼 뒤). `select 1` 바닥값이 19ms라 나머지는 왕복 자체의 비용
+    - 운영 `/me` − `/health` 기준선: **77ms → 28ms**
+    - 역할 경계는 EXECUTE 권한으로 지킨다(함수는 `baro_rate_limiter`에만 주어져 PostgREST로는 못 부른다). API는 그 역할의 멤버로서 상속받아 한 문장으로 부른다. CLAUDE.md·02-db.md도 정정
+  - [x] 운영 확인 뒤 정리: `rate_limits` 0행, 확인용 세션 로그아웃(204)
+  - [x] `supabase link` 복구(`--project-ref hpadbigfppaypvgmzttk`). `migration list`로 001~007 로컬·원격 일치 확인 — 007을 직접 적용한 것도 정상 인식된다
+    - 참고: 토큰은 Windows 자격 증명 관리자에 있다. `supabase login`은 TTY가 필요해 별도 터미널에서 해야 하고, `projects list`는 `LegacyPlatformAuthRequiredError`로 실패하지만 `link`·`migration list`·`db push`는 정상 동작한다
+  - 남음: 오래된 행 정리는 함수가 약 1% 확률로 지우고, 본격적인 정리는 v1.1 '오래된 로그 정리 작업'
+- [x] `/tokens` 3종, 토큰 해시 저장, 인증 미들웨어 (EXT-01)
+  - [x] 설계 승인: 조회 전용 역할 `baro_token_resolver` + `private` 스키마, 확장 토큰은 지금 `GET /me`만, `last_used_at` 5분 단위
+  - [x] 문서 먼저: 03-api.md(`/tokens` 상세, `TOKEN_NOT_FOUND`, 확장 토큰은 표시한 엔드포인트만), 02-db.md(역할·함수·트리거), CLAUDE.md(`withUserDb` 예외 하나)
+  - [x] `005_api_tokens.sql`: `private.resolve_api_token(char(64)) returns uuid`(security definer, `search_path=''`), 5개 제한 트리거(profiles `FOR UPDATE` 잠금)
+    - [x] PGlite 리허설 17개 통과 → 실제 DB에서 `BEGIN…ROLLBACK` 시험 실행(`postgres` 비슈퍼유저에서 역할 생성·부여·SET ROLE 동작, Supabase 기본 함수 권한 회수 확인, 롤백 후 잔여 없음) → `db push`
+    - 참고: `token_hash`를 `text`로 비교하면 인덱스를 못 쓰고 전체 스캔(EXPLAIN 확인). 그래서 인자를 `char(64)`로
+  - [x] 구현: `lib/api-tokens.ts`, `db.ts`의 `resolveApiTokenUser`, `withAuth(…, { allowApiToken })`, 라우트 2개, shared `createTokenInput`·`tokenId`
+  - [x] 테스트: shared 52개, API 101개 통과(토큰 18개: 원본 비저장·목록에 해시 없음·폐기 즉시 반영·남의 토큰 404·동시 10개 발급 → 정확히 5개·last_used_at 5분·함수 속성과 역할별 권한·인덱스 사용·withAuth 허용/거부), typecheck 전체·`next build` 통과
+  - [x] 실제 토큰 HTTP 확인(로컬 빌드 서버): 발급 201 + `cache-control: no-store`, 확장 토큰 `/me` 200, 확장 토큰으로 `/tokens` 3종·`/metadata` 401, 형식 오류·없는 토큰 같은 401, 검증 400, 없는 id 404, 동시 8개 → 201 4 + 409 4(합계 5), 목록 키에 해시 없음, 폐기 후 같은 토큰 401, 확인용 토큰 모두 정리
+    - 참고: Git Bash에서 한글을 `-d` 인자로 넘기면 UTF-8이 아니게 전송돼 이름이 `����`로 저장됨(셸 문제, 파일로 보내면 정상). 확인 스크립트는 영문 이름 사용
+  - [x] 운영(Vercel, 응답 헤더 icn1) 확인: 로컬과 같은 14단계 결과(동시 8개 → 201 4 + 409 4), 확인용 토큰 모두 폐기, 확인용 세션 로그아웃
+- [x] `/sync/chrome` (full/partial, 트랜잭션)
+  - [x] 설계 승인: URL당 한 행(나머지·manual 같은 URL은 건너뜀), `skippedReasons`, source와 토큰 종류 일치, 폴더 → 경로 이름 그룹(최상위 직속은 미분류), 크롬 프로필 사용자당 하나(v1)
+  - [x] 대량 삭제 확인 추가: full 삭제가 (절반 이상 AND 20개 이상) 또는 100개 이상이면 409 `MASS_DELETE_CONFIRM_REQUIRED` + 개수, `confirmDeleteCount` 이하일 때만 실행
+  - [x] 문서 먼저: 03-api.md(전체 규칙), 02-db.md(동기화용 제약), 01-spec.md(DESK-01·03, EXT-02·03 클라이언트 처리), CLAUDE.md
+  - [x] `006_sync.sql`: `idx_groups_user_chrome`, 그룹 이름 유니크 DEFERRABLE로 재생성, `bookmarks_source_check`, `bookmarks_chrome_id_source_check`
+    - [x] PGlite 리허설 16개 → 실제 DB `BEGIN…ROLLBACK` → `db push`
+    - 참고: `ALTER CONSTRAINT … DEFERRABLE`은 PG17까지 외래 키에만 됨(리허설에서 발견, 지우고 다시 만드는 방식으로). `DEFERRABLE INITIALLY IMMEDIATE`는 행마다가 아니라 문장 끝에 검사
+  - [x] 구현: `lib/sync-plan.ts`(순수 계획 함수), `lib/sync.ts`(사용자 잠금·한 번 읽기·500행 묶음 쓰기·URL 이동은 임시 값 단계·23505 한 번 재시도), 라우트(확장 토큰 허용, 2MB 413, maxDuration 60), shared `syncChromeInput`
+  - [x] 테스트 137개 통과: 계획 26개 + DB 통합 10개(크롬 Bookmarks 파일 모양 샘플 `test/fixtures/chrome-bookmarks.json`: 중첩 3단계·같은 URL·북마클릿·chrome://·긴 제목·빈 폴더·같은 이름 폴더)
+    - 5,000개: 첫 동기화 1.4초, 변화 없음 0.45초, 500개 수정 0.56초(로컬 → 서울 DB)
+    - URL 맞바꿈 임시 값 단계를 빼면 `uq_bm_user_url` 위반으로 실패하는 것 확인(단계가 실제로 필요)
+    - 23505 재시도 경로: 처음엔 확인 못 함 → 아래 apps/extension 작업 때 `lib/sync-retry.test.ts`로 확인
+  - [x] 실제 토큰 HTTP 확인(로컬 빌드 서버): 샘플 동기화 200(10개 생성)→다시 보내면 0건, 확장 토큰 source=app 400, 확장 partial 200, 60개 → 20개 full 409(40/60, 아무것도 안 바뀜) → confirmDeleteCount 40으로 실행, 2MB 413, 인증 없음 401, 확인용 데이터 모두 정리(DB 북마크·그룹 0개 확인)
+  - [x] 운영(Vercel, 응답 헤더 icn1) 확인: 로컬과 같은 8단계 결과, 확인용 데이터 정리 후 DB 북마크·그룹·토큰 0개, 확인용 세션 로그아웃
+- [x] apps/extension: manifest(key 고정), 팝업, 이벤트 리스너 (EXT-01~04)
+  - 결정: EXT-02 포함, 409 미리보기는 서버에 추가, 개발 DB 없음(단일 DB 사실대로 기록)
+  - 확인 계정: 테스트 계정 로그인이 두 번 본 계정으로 들어와 스크립트가 거절 → 사용자 결정으로 이번엔 본 계정(`1800f0a5…`, 실제 동기화 데이터 없음)으로 확인하고, 끝나면 이 계정에 테스트 데이터가 남지 않았는지 확인. 테스트 전용 계정은 5주차 전에 준비
+  - [x] 문서: 01-spec.md '확장 동작 규칙'(구조·토큰·상태·변환·409·실시간), 03-api.md(409 `preview`, CORS 설명 정정), CLAUDE.md '크롬 확장 보안'
+  - [x] 서버: 409 `details.preview`(지워질 북마크 최대 5개 제목·URL) — 운영 HTTP와 확장 확인 화면(예시 B-1~B-5, A-1~A-5)으로 확인
+  - [x] 서버 테스트: 23505 재시도((a) 첫 시도 롤백·재시도분만 반영, withUserDb 2회 (b) 재시도도 23505면 500 INTERNAL_ERROR), confirmDeleteCount 39→409 / 40·41→실행(문서의 '이하' 규칙대로)
+  - [x] 413 출처(운영): 3MB → 앱 413(JSON `PAYLOAD_TOO_LARGE`), 5MB → Vercel 413(text/plain `FUNCTION_PAYLOAD_TOO_LARGE`)
+  - [x] 확장: MV3(권한 bookmarks·storage, host 2개, key로 ID `odhbbplpjlmkpggjocgiliebnmappfib`), 서비스 워커에서만 fetch·북마크 읽기, 팝업은 메시지만
+  - [x] 확장 자동 테스트 32개(크롬 샘플 파일과 같은 트리, 가짜 storage·fetch)
+  - [x] 수동 확인(운영 API, 크롬 테스트 프로필, 계정 `1800f0a5…`): 가짜 토큰 401, 토큰 저장(끝 4자리만), 첫 동기화(추가 10·건너뜀 2·같은 URL 1), 재동기화 0건, 60개 가져오기, 연결 끊고 B·C 삭제 → DB 70 유지, 409(40/70, 예시 B-1~5) → 팝업 닫았다 열어도 유지 → 취소(요청 없음, DB 70) → 재409 중 A-1~5 삭제(실시간 멈춤, DB 70) → 45개로 재409 → 확인 후 DB 25, 2MB 초과(2.59MB, 보내지 않음, DB 25)
+    - 첫 2회차 시도는 연결된 채 A·B·C를 모두 지워 실시간 삭제로 60개가 사라져 처음부터 다시 함
+    - 결과 문구를 받지 못한 단계(⑭·⑮ 일부·⑰·⑱)는 DB로 확인
+    - 정리: 계정 북마크·그룹·토큰 0, 확장 토큰 폐기, `chrome_profile`·`last_synced_at` 원복, 세션 로그아웃·파일 삭제
+  - [x] 실시간 추가 → DB 반영(EXT-02): 1회차 ⑤ 팝업 '추가 1'이었으나 DB에 해당 행 없음, 일치 확인 못 함. 실시간 삭제는 반영된 것으로 보이나(첫 2회차 60개) 직접 확인은 못 함
+    - 2026-09-23 재시도(example.com Ctrl+D): DB 반영 없음. 정리 때 확장 토큰을 폐기해 401로 거절된 것으로 보임(북마크·토큰 0, last_synced_at 없음) → 새 토큰으로 다시 확인
+    - 새 토큰(`…WcU0`)으로: 전체 동기화 '추가 1'(example.com, 크롬과 DB 일치 확인) → iana.org Ctrl+D 실시간 '추가 1' → DB에 `ext_sync` 2행, iana.org는 크롬 추가 16:33:06 → 서버 반영 16:33:08 UTC(약 2초)
+    - 1회차 ⑤의 '추가 1'이 DB에 없던 원인은 끝내 확인 못 함(그 뒤 삭제된 것으로 추정, 기록 없음)
+    - 정리: 확장 토큰 폐기, 북마크 2개 API로 삭제, `last_synced_at` 원복, 로그아웃·파일 삭제 → 계정 북마크·그룹·토큰 0
+- [x] 크롬에서 북마크 추가 → DB 반영 확인 (iana.org, 약 2초. 위 EXT-02 항목)
+- [x] CI에서 단위 테스트 실행 (DB·외부 사이트가 필요 없는 것만)
+  - [x] 루트 `pnpm test`(로컬용) 추가, CI는 패키지별 3단계로 나눠 실행 — 어느 패키지가 몇 개를 건너뛰었는지 로그에서 읽히게
+  - [x] 건너뛰기는 기존 `describe.skipIf` 그대로: CI에 `DATABASE_POOLER_URL`·`METADATA_LIVE`가 없어 저절로 건너뛴다. 운영 DB가 하나뿐이라 CI에 DB 주소를 넣지 않는다
+  - [x] 초록 확인(49db3fd): shared 52, extension 32, api 105 통과 / api 48 건너뜀 — 요약 줄 `105 passed | 48 skipped (153)`
+    - 건너뛴 48개: 실제 DB 37(db 4, bookmarks 8, api-tokens 10, sync-retry 2, sync 13) + 외부 사이트 11(metadata `METADATA_LIVE`)
+  - [x] 빨간 확인(f041c43): `fitGroupName`을 일부러 30자를 한 글자 넘기게 바꿔 푸시 → typecheck·shared·extension 통과, **api 테스트 단계에서 실패**, build는 건너뜀
+  - [x] 되돌림(12efaa3, revert) 후 다시 초록 확인
+  - 참고: SSRF IP 판정(`isPublicUnicast`)을 망가뜨리는 쪽을 먼저 시도했으나 보안 방어를 약화시키는 커밋이라 막혀서, 보안과 무관한 그룹 이름 자르기로 바꿨다
+
