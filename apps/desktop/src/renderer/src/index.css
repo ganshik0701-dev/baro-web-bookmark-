@@ -1059,6 +1059,7 @@ button:focus-visible {
 
 /* 이름·설명 + 오른쪽 버튼 한 줄. 좁으면 버튼이 다음 줄로 */
 .settings-row {
+  display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
@@ -1067,6 +1068,8 @@ button:focus-visible {
 }
 
 .settings-text {
+  /* 글이 남는 폭을 쓰고, 240px보다 좁아지면 버튼이 다음 줄로 */
+  flex: 1 1 240px;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1092,6 +1095,108 @@ button:focus-visible {
   height: var(--btn-height-secondary);
   border-radius: var(--control-radius);
   font-size: 13px;
+}
+
+/* 작은 버튼(34px): '지금 동기화', 토큰 '복사'·'폐기' */
+.settings-button-small {
+  height: 34px;
+  padding: 0 14px;
+}
+
+.settings-detail.is-error {
+  color: var(--danger);
+}
+
+/* 경로는 한 줄 말줄임, 전체는 title */
+.settings-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 스위치 줄은 좁아도 스위치가 글 옆에 남는다(글이 줄어 여러 줄이 된다) */
+.settings-row.is-switch {
+  flex-wrap: nowrap;
+}
+
+.settings-row.is-switch .settings-text {
+  flex-basis: 0;
+}
+
+/* 카드 안 구분선(시안: 프로필 줄과 스위치 줄 사이) */
+.settings-divided {
+  padding-top: 14px;
+  border-top: var(--card-border-width) solid var(--border);
+}
+
+/* '변경'을 누르면 카드 안에 펼치는 프로필 목록(SCR-02와 같은 라디오 목록) */
+.settings-profiles {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.settings-pick {
+  align-self: flex-start;
+  margin-left: 0;
+}
+
+.settings-changed {
+  padding: 10px 14px;
+  border-radius: var(--card-radius-sm);
+  background: var(--accent-soft);
+}
+
+/* 스위치(46×26px, 동그라미 20px). 체크박스에 role="switch" */
+.switch {
+  appearance: none;
+  flex-shrink: 0;
+  position: relative;
+  width: 46px;
+  height: 26px;
+  margin: 0;
+  border-radius: 13px;
+  background: var(--border-strong);
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.switch::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface);
+  transition: transform 150ms ease;
+}
+
+.switch:checked {
+  background: var(--accent);
+}
+
+.switch:checked::before {
+  transform: translateX(20px);
+}
+
+.switch:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.switch:focus-visible {
+  outline: var(--focus-ring-width) solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch,
+  .switch::before {
+    transition: none;
+  }
 }
 
 /* ---------- SCR-03 본문 ---------- */

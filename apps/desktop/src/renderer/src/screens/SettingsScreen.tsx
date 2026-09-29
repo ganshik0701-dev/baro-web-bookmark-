@@ -1,12 +1,15 @@
 // SCR-05 설정 (docs/01-spec.md '설정 화면 규칙', 시안 '8 · 설정').
 // 그리드 본문(.home-body) 위를 덮는 칸이다. 그리드는 뒤에 그대로 있어 검색어·정렬·스크롤이 남는다.
-// 카드 셋: 동기화(6-(3)에서 채움) · 확장 프로그램(6-(4)에서 채움) · 계정
+// 카드 셋: 동기화 · 확장 프로그램(6-(4)에서 채움) · 계정
 import { useEffect, useRef, type RefObject } from 'react'
 import type { AuthSession } from '@baro/shared'
+import SyncCard from '../components/SyncCard'
+import type { SyncState } from '../types'
 import { SETTINGS_LABELS, SETTINGS_SECTIONS, settingsCardId, type SettingsSection } from '../lib/settings-sections'
 
 type Props = {
   session: AuthSession
+  sync: SyncState | null
   waitingLogout: boolean
   onLogout: () => void
   /** 스크롤해서 화면 위쪽에 먼저 보이는 카드가 바뀌면 */
@@ -15,7 +18,7 @@ type Props = {
   clickedSection: RefObject<SettingsSection | null>
 }
 
-export default function SettingsScreen({ session, waitingLogout, onLogout, onVisibleSection, clickedSection }: Props) {
+export default function SettingsScreen({ session, sync, waitingLogout, onLogout, onVisibleSection, clickedSection }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
 
@@ -40,17 +43,31 @@ export default function SettingsScreen({ session, waitingLogout, onLogout, onVis
         const r = card?.getBoundingClientRect()
         return r ? r.bottom > top + 1 && r.top < el.getBoundingClientRect().bottom : false
       }
+      // 맨 아래면 마지막 카드는 위로 올라올 수 없다: 사이드바에서 누른 카드가 보이면 그것, 아니면 마지막 카드
       const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1
-      const clicked = clickedSection.current
-      if (atBottom && clicked && visible(document.getElementById(settingsCardId(clicked)))) {
-        onVisibleSection(clicked)
+      if (atBottom && el.scrollHeight > el.clientHeight) {
+        const clicked = clickedSection.current
+        const last = SETTINGS_SECTIONS[SETTINGS_SECTIONS.length - 1]
+        onVisibleSection(clicked && visible(document.getElementById(settingsCardId(clicked))) ? clicked : last)
         return
       }
       const first = cards.find(([, card]) => (card?.getBoundingClientRect().bottom ?? 0) > top + 1)
       if (first) onVisibleSection(first[0])
     }
+    // 사용자가 직접 스크롤하기 시작하면 '누른 카드'는 잊는다(스크롤 위치대로 고른다)
+    const forget = () => {
+      clickedSection.current = null
+    }
     el.addEventListener('scroll', onScroll, { passive: true })
-    return () => el.removeEventListener('scroll', onScroll)
+    el.addEventListener('wheel', forget, { passive: true })
+    el.addEventListener('pointerdown', forget)
+    el.addEventListener('keydown', forget)
+    return () => {
+      el.removeEventListener('scroll', onScroll)
+      el.removeEventListener('wheel', forget)
+      el.removeEventListener('pointerdown', forget)
+      el.removeEventListener('keydown', forget)
+    }
   }, [onVisibleSection, clickedSection])
 
   return (
@@ -63,6 +80,7 @@ export default function SettingsScreen({ session, waitingLogout, onLogout, onVis
         <h2 id="settings-sync-title" className="settings-card-title">
           {SETTINGS_LABELS.sync}
         </h2>
+        <SyncCard sync={sync} />
       </section>
 
       <section id={settingsCardId('extension')} className="settings-card" aria-labelledby="settings-extension-title">

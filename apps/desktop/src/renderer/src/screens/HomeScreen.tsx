@@ -223,6 +223,7 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
       {settingsOpen && (
         <SettingsScreen
           session={session}
+          sync={sync}
           waitingLogout={waitingLogout}
           onLogout={onLogout}
           onVisibleSection={setSettingsSection}
