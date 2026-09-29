@@ -1,11 +1,13 @@
 // SCR-03 메인 그리드 (docs/01-spec.md '메인 그리드 규칙'·'사이드바 규칙', 시안 '3 · 메인 그리드').
-// 왼쪽 사이드바 + 본문(검색·정렬 줄, 그리드, 상태바).
+// 왼쪽 사이드바 + 본문(검색·정렬 줄, 그리드, 상태바). 설정(SCR-05)은 본문 위를 덮어 그리드를 그대로 둔다.
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { AuthSession, AuthStatus, Bookmark } from '@baro/shared'
 import BookmarkModal, { type BookmarkModalMode } from '../components/BookmarkModal'
 import BookmarkGrid from '../components/BookmarkGrid'
 import Sidebar from '../components/Sidebar'
 import StatusBar, { type StatusMessage } from '../components/StatusBar'
+import SettingsScreen from './SettingsScreen'
+import { settingsCardId, type SettingsSection } from '../lib/settings-sections'
 import { usePinMutation, useBookmarks, useSortSetting } from '../lib/queries'
 import { useSortSaver } from '../lib/use-sort-saver'
 import { SORT_LABELS, SORT_OPTIONS, sortBookmarks, toSortOption, type SortOption } from '../lib/order'
@@ -106,6 +108,34 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
 
   const syncing = sync?.phase === 'syncing' || sync?.phase === 'needs_confirm'
 
+  // SCR-05 설정. 들어갈 때마다 맨 위(동기화)부터. 돌아오면 '설정' 버튼으로 포커스
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>('sync')
+  const clickedSection = useRef<SettingsSection | null>(null)
+  const settingsButton = useRef<HTMLButtonElement>(null)
+  const returnToSettingsButton = useRef(false)
+  const openSettings = () => {
+    clickedSection.current = null
+    setSettingsSection('sync')
+    setSettingsOpen(true)
+  }
+  const closeSettings = () => {
+    returnToSettingsButton.current = true
+    setSettingsOpen(false)
+  }
+  // 그리드 쪽 inert가 풀린 뒤에 포커스를 돌려준다
+  useEffect(() => {
+    if (settingsOpen || !returnToSettingsButton.current) return
+    returnToSettingsButton.current = false
+    settingsButton.current?.focus()
+  }, [settingsOpen])
+  const goToSection = (section: SettingsSection) => {
+    clickedSection.current = section
+    setSettingsSection(section)
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    document.getElementById(settingsCardId(section))?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+  }
+
   // OPEN-01. 기본 브라우저로 연다. 주소 검사(http/https만)는 메인이 한다.
   // 열기에 성공한 뒤에만 방문을 기록한다(OPEN-02). 기록 실패는 알리지 않고, 목록도 다시 받지 않는다
   const open = useCallback((b: Bookmark) => {
@@ -161,7 +191,16 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
             : null
 
   return (
-    <div className="home">
+    <div
+      className="home"
+      // Esc로 설정에서 돌아온다. 사이드바·설정 안에 포커스가 있을 때만(대량 삭제 모달은 이 밖에 있어 그쪽 Esc가 먼저다)
+      onKeyDown={(e) => {
+        if (settingsOpen && e.key === 'Escape' && !e.defaultPrevented) {
+          e.preventDefault()
+          closeSettings()
+        }
+      }}
+    >
       {/* 모달이 열린 동안 뒤 화면은 inert: Tab·클릭이 닿지 않는다(보이지 않는 타일이 열리지 않게) */}
       <Sidebar
         view={view}
@@ -171,8 +210,9 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
         sync={sync}
         syncing={syncing}
         session={session}
-        waitingLogout={waitingLogout}
-        onLogout={onLogout}
+        onOpenSettings={openSettings}
+        settingsButtonRef={settingsButton}
+        settings={settingsOpen ? { section: settingsSection, onSection: goToSection, onBack: closeSettings } : undefined}
         collapsed={sidebar.collapsed}
         narrow={sidebar.narrow}
         onToggle={sidebar.toggle}
@@ -180,6 +220,17 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
       />
 
       <div className="home-body">
+      {settingsOpen && (
+        <SettingsScreen
+          session={session}
+          waitingLogout={waitingLogout}
+          onLogout={onLogout}
+          onVisibleSection={setSettingsSection}
+          clickedSection={clickedSection}
+        />
+      )}
+      {/* 설정이 덮고 있는 동안 그리드 쪽은 inert + aria-hidden(보이지 않는 타일에 Tab·스크린리더가 닿지 않게) */}
+      <div className="home-grid-side" inert={settingsOpen} aria-hidden={settingsOpen || undefined}>
       <div className="home-toolbar" inert={modal !== null}>
         <h1 ref={headingRef} tabIndex={-1} className="visually-hidden">
           북마크
@@ -274,6 +325,7 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
       </main>
 
       <StatusBar message={message} inert={modal !== null} />
+      </div>
       </div>
 
       {modal && (

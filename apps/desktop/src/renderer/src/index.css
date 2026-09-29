@@ -795,7 +795,7 @@ button:focus-visible {
   padding: 14px 0 0;
 }
 
-.sidebar.is-collapsed .account-button {
+.sidebar.is-collapsed .sidebar-settings {
   width: var(--btn-height);
   justify-content: center;
 }
@@ -934,12 +934,8 @@ button:focus-visible {
   cursor: default;
 }
 
-/* 임시(6단계 전까지): '설정' 버튼 + 위로 열리는 계정 패널 */
-.account {
-  position: relative;
-}
-
-.account-button {
+/* '설정' 버튼(이니셜 + '설정') → 설정 화면 */
+.sidebar-settings {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -947,6 +943,7 @@ button:focus-visible {
   min-height: var(--btn-height);
   padding: 0;
   border: 0;
+  border-radius: var(--control-radius);
   background: transparent;
   font: inherit;
   font-size: var(--text-body);
@@ -954,9 +951,10 @@ button:focus-visible {
   cursor: pointer;
 }
 
-.account-initial {
+.sidebar-initial {
   width: 30px;
   height: 30px;
+  flex-shrink: 0;
   border-radius: 50%;
   background: var(--border);
   display: flex;
@@ -966,36 +964,134 @@ button:focus-visible {
   font-weight: 700;
 }
 
-/* 창 기준(fixed)으로 띄운다. left·bottom은 AccountMenu가 버튼 위치로 정한다(사이드바 overflow에 잘리지 않게) */
-.account-panel {
-  position: fixed;
-  z-index: 10;
-  width: 260px;
-  max-width: calc(100vw - 16px);
-  box-sizing: border-box;
-  padding: var(--card-pad);
+/* 설정 화면의 사이드바(시안 '8 · 설정') */
+.sidebar-back-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.sidebar-back {
+  flex-grow: 1;
+  min-width: 0;
+  height: var(--btn-height-secondary);
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  font-size: var(--text-body);
+  color: var(--link);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sidebar-back:hover {
+  background: var(--bg);
+}
+
+.sidebar-heading {
+  margin: 0;
+  padding: 8px 10px 6px;
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.sidebar-item[aria-current='true'] {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.sidebar.is-settings.is-collapsed .sidebar-toggle {
+  margin-bottom: 6px;
+}
+
+/* ---------- SCR-05 설정 (시안 '8 · 설정') ---------- */
+
+/* 그리드 본문(.home-body, position: relative) 위를 덮는다(그리드는 뒤에 그대로: 검색어·정렬·스크롤 유지) */
+.settings {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow-y: auto;
+  padding: var(--page-top) var(--page-x);
+  background: var(--bg);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 18px;
+}
+
+.settings > * {
+  width: 100%;
+  max-width: 720px;
+  box-sizing: border-box;
+}
+
+.settings-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.settings-card {
+  flex-shrink: 0;
+  padding: 20px 22px;
   background: var(--surface);
   border: var(--card-border-width) solid var(--border);
   border-radius: var(--card-radius);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.account-email {
+.settings-card-title {
   margin: 0;
-  font-weight: 500;
-  word-break: break-all;
+  font-size: var(--text-section);
+  font-weight: 600;
 }
 
-.account-note {
-  margin: 0;
-  font-size: var(--text-caption);
-  color: var(--text-subtle);
+/* 이름·설명 + 오른쪽 버튼 한 줄. 좁으면 버튼이 다음 줄로 */
+.settings-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 20px;
 }
 
-.account-panel .button-secondary {
-  align-self: flex-start;
+.settings-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.settings-name {
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+
+.settings-account-name {
+  font-weight: 600;
+}
+
+.settings-detail {
+  font-size: var(--text-small);
+  color: var(--text-muted);
+}
+
+.settings-button {
+  flex-shrink: 0;
+  height: var(--btn-height-secondary);
+  border-radius: var(--control-radius);
+  font-size: 13px;
 }
 
 /* ---------- SCR-03 본문 ---------- */
@@ -1005,8 +1101,18 @@ button:focus-visible {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  /* 설정 화면(.settings)이 이 칸을 덮는다 */
+  position: relative;
   /* 검색·정렬 두 줄 전환의 기준(아래 @container) */
   container: home-body / inline-size;
+}
+
+/* 검색 줄·그리드·상태바를 묶는다. 설정이 덮고 있으면 이 칸에 inert가 붙는다 */
+.home-grid-side {
+  flex-grow: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 본문 위 검색·정렬 줄 */
