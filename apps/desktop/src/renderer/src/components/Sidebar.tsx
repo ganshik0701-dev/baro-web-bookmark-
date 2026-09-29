@@ -3,17 +3,18 @@
 // 설정 화면(settings를 넘기면): ← 그리드로 돌아가기 / '설정' / 동기화·확장 프로그램·계정(누르면 그 카드로 스크롤).
 // 그룹 목록과 "그룹" 제목은 두지 않는다(GROUP-01~02, v1.1).
 // 접으면 64px에 아이콘만 남는다(글자·개수는 aria-label과 title로). 창이 좁으면 저절로 접히고, 그동안 펴기 버튼은 비활성
+// 개수는 받은 목록이 있을 때만 보인다(counts가 null이면 숫자·"N개" 모두 없음)
 import { useEffect, useRef, type ReactNode, type RefObject } from 'react'
 import type { AuthSession } from '@baro/shared'
 import { relativeTime } from '../lib/relative-time'
 import { useNow } from '../lib/use-now'
-import { VIEW_LABELS, VIEWS, type View } from '../lib/view'
+import { VIEW_LABELS, VIEWS, viewItemName, type SidebarCounts, type View } from '../lib/view'
 import type { SyncState } from '../types'
 import { SETTINGS_LABELS, SETTINGS_SECTIONS, type SettingsSection } from '../lib/settings-sections'
 
 type Props = {
   view: View
-  counts: Record<View, number>
+  counts: SidebarCounts
   onView: (view: View) => void
   onAdd: () => void
   sync: SyncState | null
@@ -203,7 +204,7 @@ export default function Sidebar(props: Props) {
 
       <ul className="sidebar-views">
         {VIEWS.map((v) => {
-          const name = `${VIEW_LABELS[v].label} ${counts[v]}개`
+          const name = viewItemName(v, counts)
           return (
             <li key={v}>
               <button
@@ -219,7 +220,7 @@ export default function Sidebar(props: Props) {
                 ) : (
                   <>
                     <span>{VIEW_LABELS[v].label}</span>
-                    <span className="sidebar-count">{counts[v]}</span>
+                    {counts && <span className="sidebar-count">{counts[v]}</span>}
                   </>
                 )}
               </button>

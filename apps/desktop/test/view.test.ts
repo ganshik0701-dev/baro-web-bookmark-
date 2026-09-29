@@ -1,7 +1,7 @@
 // 사이드바 전체 / 고정됨 / 최근 추가 (docs/01-spec.md '사이드바 규칙')
 import { describe, expect, it } from 'vitest'
 import type { Bookmark } from '@baro/shared'
-import { filterView, viewCounts } from '../src/renderer/src/lib/view'
+import { filterView, viewCounts, viewItemName } from '../src/renderer/src/lib/view'
 
 const NOW = Date.parse('2026-09-28T12:00:00.000Z')
 const daysAgo = (d: number) => new Date(NOW - d * 24 * 60 * 60 * 1000).toISOString()
@@ -37,5 +37,24 @@ describe('viewCounts', () => {
 
   it('지우는 중인 것은 빼고 센다', () => {
     expect(viewCounts(LIST, new Set(['newPinned']), NOW)).toEqual({ all: 4, pinned: 1, recent: 2 })
+  })
+})
+
+describe('viewItemName (사이드바 스크린리더 이름·툴팁)', () => {
+  it('받은 목록이 있으면 "이름 N개"', () => {
+    const counts = { all: 111, pinned: 4, recent: 12 }
+    expect(viewItemName('all', counts)).toBe('전체 111개')
+    expect(viewItemName('pinned', counts)).toBe('고정됨 4개')
+    expect(viewItemName('recent', counts)).toBe('최근 추가 12개')
+  })
+
+  it('받은 목록이 비었으면 0은 진짜 값이라 0개', () => {
+    expect(viewItemName('all', viewCounts([], new Set(), NOW))).toBe('전체 0개')
+  })
+
+  it('받은 목록이 없으면(null) 이름만. "0개"로 읽히지 않게', () => {
+    expect(viewItemName('all', null)).toBe('전체')
+    expect(viewItemName('pinned', null)).toBe('고정됨')
+    expect(viewItemName('recent', null)).toBe('최근 추가')
   })
 })

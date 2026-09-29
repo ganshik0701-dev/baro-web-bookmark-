@@ -204,7 +204,8 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
       {/* 모달이 열린 동안 뒤 화면은 inert: Tab·클릭이 닿지 않는다(보이지 않는 타일이 열리지 않게) */}
       <Sidebar
         view={view}
-        counts={counts}
+        // 받은 목록이 없으면(처음 불러오는 중·실패) 개수를 비운다. 새로 고침만 실패하면 list.data가 남아 있어 기존 개수 그대로
+        counts={list.data ? counts : null}
         onView={setView}
         onAdd={() => openModal({ kind: 'add' })}
         sync={sync}

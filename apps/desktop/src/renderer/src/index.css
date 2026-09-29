@@ -1426,12 +1426,15 @@ button:focus-visible {
 }
 
 /* 불러오는 중·실패·0개 */
+/* 상태 화면(빈 목록·불러오기 실패·불러오는 중·검색 결과 0개·빈 항목)은 모두 같은 모양: 왼쪽 위에 글 + 그 아래 버튼 하나 */
 .home-state {
   margin: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
   color: var(--text-muted);
 }
 

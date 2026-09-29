@@ -42,3 +42,15 @@ export const VIEW_LABELS: Record<View, { label: string; section: string | null; 
   pinned: { label: '고정됨', section: null, empty: '고정된 북마크가 없습니다. 타일을 우클릭해 ‘고정’을 고르세요.' },
   recent: { label: '최근 추가', section: `최근 추가 · ${RECENT_DAYS}일`, empty: `최근 ${RECENT_DAYS}일에 추가한 북마크가 없습니다.` }
 }
+
+/** 사이드바 개수. null = 아직 받은 목록이 없다(처음 불러오는 중·처음부터 불러오지 못함). 0과 다르다 */
+export type SidebarCounts = Record<View, number> | null
+
+/**
+ * 사이드바 항목의 스크린리더 이름·툴팁. "전체 111개"
+ * 받은 목록이 없으면 이름만 둔다. "전체 0개"로 읽히면 북마크가 사라진 것처럼 들린다(docs/01-spec.md '사이드바 규칙')
+ */
+export function viewItemName(view: View, counts: SidebarCounts): string {
+  const label = VIEW_LABELS[view].label
+  return counts ? `${label} ${counts[view]}개` : label
+}
