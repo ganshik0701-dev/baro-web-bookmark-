@@ -549,76 +549,124 @@ button:focus-visible {
 }
 
 .modal {
-  width: 520px;
+  width: 540px;
   max-width: 100%;
   max-height: 100%;
   overflow-y: auto;
   background: var(--surface);
   border: var(--card-border-width) solid var(--border);
   border-radius: var(--card-radius-lg);
-  padding: 28px 32px;
+  padding: 28px 30px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
+}
+
+/* 대량 삭제 확인(시안 '7 · 대량 삭제 확인') */
+.modal-wide {
+  width: 560px;
 }
 
 .modal-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 21px;
+  font-size: var(--text-modal-title);
   font-weight: 700;
 }
 
 .modal-desc {
   margin: 0;
-  font-size: var(--text-body);
+  font-size: 13.5px;
   line-height: var(--leading-body);
   color: var(--text-muted);
 }
 
-.modal-preview {
-  list-style: none;
-  margin: 0;
+/* 지워질 북마크 예시 칸 */
+.md-samples {
   padding: 14px 16px;
+  background: var(--bg);
   border: var(--card-border-width) solid var(--border);
   border-radius: var(--card-radius-sm);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
-.modal-preview li {
+.md-samples-title {
+  margin: 0;
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.md-samples-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 8px;
 }
 
-/* 로그인 화면의 .preview-title과 이름이 겹쳐 로그인 쪽 글자를 덮어쓰던 것을 나눴다.
-   색·자간은 그동안 로그인 규칙에서 물려받아 보이던 그대로 옮겼다 */
-.modal-preview-title {
-  font-size: 13.5px;
-  font-weight: 500;
-  letter-spacing: 0.4px;
-  color: var(--text-subtle);
+.md-sample {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-size: 13px;
 }
 
-.modal-preview-url {
-  font-size: var(--text-small);
-  color: var(--text-subtle);
+/* 그리드 글자 타일과 같은 색 쌍(letterTileStyle), 크기만 작다 */
+.md-sample-tile {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tile-fg);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.md-sample-title {
+  flex-grow: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.modal-preview-more {
+/* 좁은 창에서는 도메인도 줄인다(제목이 먼저 보이게 도메인은 최대 45%) */
+.md-sample-domain {
+  flex-shrink: 1;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-small);
+  color: var(--text-muted);
+}
+
+.md-samples-more {
+  margin: 0;
+  padding-top: 2px;
   font-size: var(--text-caption);
-  color: var(--text-subtle);
+  color: var(--text-muted);
 }
 
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* 추가·수정·중복: 버튼 줄 위 구분선(보드 값: 구분선과 버튼 사이 4px) */
+.modal-actions.is-divided {
+  padding-top: 4px;
+  border-top: var(--card-border-width) solid var(--border);
 }
 
 /* ---------- SCR-03 메인 그리드 (시안 project/Main.dc.html) ---------- */
@@ -1174,14 +1222,14 @@ button:focus-visible {
 
 .field {
   flex-grow: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .field-label {
-  font-size: var(--text-caption);
-  font-weight: 500;
+  font-size: 13px;
   color: var(--text-muted);
 }
 
@@ -1189,7 +1237,7 @@ button:focus-visible {
   height: var(--input-height);
   box-sizing: border-box;
   padding: 0 var(--input-pad-x);
-  border: var(--card-border-width) solid var(--border);
+  border: var(--card-border-width) solid var(--border-strong);
   border-radius: var(--btn-radius);
   background: var(--surface);
   font: inherit;
@@ -1219,7 +1267,7 @@ button:focus-visible {
 .field-hint {
   margin: 0;
   font-size: var(--text-caption);
-  color: var(--text-subtle);
+  color: var(--text-muted);
 }
 
 .bm-title-row {
@@ -1231,36 +1279,49 @@ button:focus-visible {
 .bm-preview {
   flex-shrink: 0;
   display: flex;
+  /* 시안 '5 · 북마크 추가'의 미리보기 56px(그리드 타일 크기와 따로 둔다) */
+  --tile-size: 56px;
+}
+
+.bm-preview .tile-icon {
+  border-radius: 14px;
 }
 
 /* 중복(409): 구분선 아래 안내. 오류가 아니라 안내라 본문 색 */
 .bm-duplicate {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding-top: 16px;
-  border-top: var(--card-border-width) solid var(--border);
+  gap: 6px;
+  padding: 14px 16px;
+  background: var(--warn-bg);
+  border: var(--card-border-width) solid var(--warn-border);
+  border-radius: var(--card-radius-sm);
 }
 
 .bm-duplicate-title {
   margin: 0;
-  font-size: var(--text-body);
-  line-height: var(--leading-body);
-  color: var(--text);
-}
-
-.bm-duplicate-title strong {
+  font-size: 13.5px;
   font-weight: 600;
+  color: var(--warn-text);
+  overflow-wrap: anywhere;
 }
 
 .bm-duplicate-note {
   margin: 0;
   font-size: var(--text-caption);
   line-height: var(--leading-body);
-  color: var(--text-subtle);
+  color: var(--text-muted);
 }
 
+/* 모달 버튼은 보조도 기본과 같은 높이(시안 5·6·7) */
+.modal-actions .button-secondary {
+  height: var(--btn-height);
+}
+
+/* 중복의 '기존 북마크 수정'(크롬에서 온 것) 등 */
 .modal-actions .button-secondary:disabled {
-  color: var(--text-subtle);
+  background: var(--btn-disabled-bg);
+  border-color: var(--border);
+  color: var(--btn-disabled-text);
   cursor: default;
 }

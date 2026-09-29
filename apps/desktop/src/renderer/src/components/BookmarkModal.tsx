@@ -1,7 +1,7 @@
 // SCR-04 북마크 추가·수정 모달 (docs/01-spec.md '추가·수정 모달 규칙', 시안 보드 '북마크 추가·수정').
 // 요청은 메인이 한다(createBookmark·updateBookmark·fetchMetadata). 검증은 서버와 같은 shared 스키마.
 // 낙관적 업데이트는 하지 않는다: 저장 응답을 받은 뒤 캐시에 그 항목만 넣거나 바꾼다.
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createBookmarkInput, httpUrl, updateBookmarkInput, type Bookmark } from '@baro/shared'
 import { BOOKMARKS_KEY, upsertBookmarkInCache } from '../lib/queries'
@@ -30,11 +30,12 @@ function parseUrl(raw: string): string | null {
 /** 가져온 아이콘과 그 주소. 주소가 바뀌면 옛 아이콘을 쓰지 않는다 */
 type Meta = { forUrl: string; iconUrl: string | null }
 
+/** 가져온 제목을 채운 주소와, 아이콘도 받았는지. "주소에서 … 가져왔습니다" 안내에 쓴다 */
+type Filled = { forUrl: string; withIcon: boolean }
+
 /** 409에서 찾은 기존 북마크. 캐시·다시 받은 목록 어디에도 없으면 null */
 type Duplicate = { existing: Bookmark | null }
 
-// 아이콘 미리보기는 그리드 중간 크기 타일과 같다
-const PREVIEW_STYLE = { '--tile-size': 'var(--tile-size-md)' } as CSSProperties
 
 export default function BookmarkModal({ initial, bookmarks, onOpen, onAdded, onClose }: Props) {
   const qc = useQueryClient()
@@ -54,6 +55,7 @@ export default function BookmarkModal({ initial, bookmarks, onOpen, onAdded, onC
     setMetaState(m)
   }
   const [fetching, setFetching] = useState(false)
+  const [filled, setFilled] = useState<Filled | null>(null)
   const [urlError, setUrlError] = useState<string | null>(null)
   const [titleError, setTitleError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -106,6 +108,7 @@ export default function BookmarkModal({ initial, bookmarks, onOpen, onAdded, onC
       if (!titleRef.current.trim() && r.data.title) {
         titleRef.current = r.data.title
         setTitle(r.data.title)
+        setFilled({ forUrl: parsed, withIcon: r.data.iconUrl !== null })
       }
     })
   }
@@ -204,6 +207,7 @@ export default function BookmarkModal({ initial, bookmarks, onOpen, onAdded, onC
     setCommittedUrl(b.url)
     setMeta({ forUrl: b.url, iconUrl: b.iconUrl })
     setFetching(false)
+    setFilled(null)
     setUrlError(null)
     setTitleError(null)
     setSaveError(null)
@@ -271,6 +275,7 @@ export default function BookmarkModal({ initial, bookmarks, onOpen, onAdded, onC
             onChange={(e) => {
               setUrl(e.target.value)
               setUrlError(null)
+              setFilled(null)
               edited()
             }}
             onBlur={commitUrl}
@@ -286,7 +291,7 @@ export default function BookmarkModal({ initial, bookmarks, onOpen, onAdded, onC
         </div>
 
         <div className="bm-title-row">
-          <span className="bm-preview" style={PREVIEW_STYLE}>
+          <span className="bm-preview">
             <TileIcon title={title} url={previewUrl} iconUrl={previewIcon} />
           </span>
           <div className="field">
@@ -312,15 +317,20 @@ export default function BookmarkModal({ initial, bookmarks, onOpen, onAdded, onC
             />
           </div>
         </div>
-        {/* 제목 칸 아래 줄: 오류가 먼저, 없으면 가져오는 중 */}
+        {/* 제목 칸 아래 줄: 오류가 먼저, 다음은 가져오는 중, 다음은 가져왔다는 안내(시안 '5 · 북마크 추가') */}
         {titleError ? (
           <p id="bm-name-error" className="field-error">
             {titleError}
           </p>
+        ) : fetching ? (
+          <p id="bm-fetching" className="field-hint" role="status">
+            제목을 가져오는 중…
+          </p>
         ) : (
-          fetching && (
-            <p id="bm-fetching" className="field-hint" role="status">
-              제목을 가져오는 중…
+          filled &&
+          filled.forUrl === committedUrl && (
+            <p className="field-hint" role="status">
+              {filled.withIcon ? '주소에서 제목과 아이콘을 가져왔습니다.' : '주소에서 제목을 가져왔습니다.'} 직접 고쳐도 됩니다.
             </p>
           )
         )}
@@ -338,7 +348,7 @@ export default function BookmarkModal({ initial, bookmarks, onOpen, onAdded, onC
                 </p>
               )}
             </div>
-            <div className="modal-actions">
+            <div className="modal-actions is-divided">
               <button type="button" className="button-secondary" onClick={onClose}>
                 취소
               </button>
@@ -371,7 +381,7 @@ export default function BookmarkModal({ initial, bookmarks, onOpen, onAdded, onC
                 {saveError}
               </p>
             )}
-            <div className="modal-actions">
+            <div className="modal-actions is-divided">
               <button type="button" className="button-secondary" onClick={onClose} disabled={saving}>
                 취소
               </button>
