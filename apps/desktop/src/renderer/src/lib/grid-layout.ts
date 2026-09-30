@@ -20,12 +20,12 @@ export type GridLayout = { cols: number; tile: number }
 
 /** 토큰을 못 읽었을 때(값 오타 등)의 기본값. docs/04-design.md 그리드 토큰 표와 같다 */
 export const DEFAULT_GRID: GridTokens = {
-  cellMin: 100,
-  gap: 8,
+  cellMin: 88,
+  gap: 4,
   colsMin: 2,
   colsMax: 10,
-  tileMin: 56,
-  tileMax: 72,
+  tileMin: 48,
+  tileMax: 64,
   tileRatio: 0.57
 }
 

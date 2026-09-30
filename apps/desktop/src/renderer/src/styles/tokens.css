@@ -106,19 +106,21 @@
 
   /* ── 그리드 (SCR-03) ────────────────────────────── */
   /* 열 수는 그리드 영역 폭 ÷ 칸 최소 너비로 계산한다(docs/04-design.md '그리드'). px로만 쓴다. CSS가 아니라 JS가 읽는다 */
-  --grid-cell-min: 100px;
+  --grid-cell-min: 88px;
   --grid-cols-min: 2;
   --grid-cols-max: 10;
   /* 아이콘 = 칸 폭 × 비율, 범위 안에서 */
-  --tile-size-min: 56px;
-  --tile-size-max: 72px;
+  --tile-size-min: 48px;
+  --tile-size-max: 64px;
   --tile-size-ratio: 0.57;
   --tile-radius: 18px;
   --tile-letter-ratio: 0.4;
   --tile-favicon-ratio: 0.5;
-  --grid-gap-row: 18px;
-  --grid-gap-col: 8px;
-  --tile-label-gap: 8px;
+  --grid-gap-row: 10px;
+  --grid-gap-col: 4px;
+  --tile-label-gap: 4px;
+  /* 타일 버튼 안쪽 여백(위아래 좌우). 포커스 테두리가 이 가장자리에 그려진다 */
+  --tile-padding: 6px 2px;
 
   /* ── 그 밖 ──────────────────────────────────────── */
   --focus-ring-width: 2px;
