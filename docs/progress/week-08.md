@@ -13,8 +13,15 @@
   - 앱은 메인 프로세스(`main/api.ts`·`auth.ts`)가 `import.meta.env.VITE_*`로 읽는다. electron-vite는 `VITE_`를 메인에도 넣고, 빌드(production 모드)에서 `.env.production`이 `.env`를 덮는다
   - `electron-vite build` 결과 `out/main`에 운영 API 주소 1곳만, localhost:3000 없음, Supabase 주소 확인
   - `.gitignore`는 `.env`·`.env.local`만 막아 `.env.production`은 git에 들어간다 → 공개값뿐이라 **커밋하기로**(사람 결정, 다른 PC에서 빌드해도 같은 결과). 맨 위에 "공개값만. 비밀값(서비스 키 등)은 넣지 말 것" 주석
-- [ ] didStartupSync → 로그인할 때마다 (2026-10-01, 코드·테스트 끝, 실제 앱 확인 남음)
+- [x] didStartupSync → 로그인할 때마다 (2026-10-01, 코드·단위 테스트·실제 앱 확인 끝)
   - 문서 먼저: 01-spec.md DESK-03 줄·'자동 동기화'(로그인 세션이 새로 생길 때마다 1회, 같은 세션의 토큰 갱신에서는 안 함, 로그아웃하면 동기화 상태와 첫 동기화 화면 기억을 비움)·첫 동기화 전 규칙("이 확인도 로그인할 때마다")
   - 원인이 둘: 메인의 `didStartupSync`(실행당 1번)와, 렌더러 `App.tsx`의 첫 동기화 화면 '열었음/닫았음'이 로그아웃해도 남던 것(한 번 닫으면 같은 실행 안에서 다른 계정이 첫 동기화 전이어도 안 뜸)
   - 코드: `main/login-watch.ts`(순수 함수, 없음 → 있음 또는 계정이 바뀔 때 onLogin, 세션이 없어지면 onLogout), `main/index.ts`는 onLogin에 `startupSync`, onLogout에 동기화 상태 초기화, `App.tsx`는 로그아웃 때 첫 동기화 화면 기억도 비움
   - 단위 테스트 7개(복원 뒤 1번, 토큰 갱신은 안 돎, 같은 실행 안 로그아웃 → 재로그인에 다시 돎, 다른 계정, 로그아웃 없이 계정 바뀜, 로그인 없이 로그아웃 알림, 이메일 없는 세션) → desktop 270 통과, typecheck 통과
+  - 코드는 `0a70dde`로 먼저 커밋·푸시, CI 통과
+  - 실제 앱 확인 (2026-10-01, 테스트 계정, 로컬 API + 운영 DB, 앱은 `BARO_REFRESH_MARGIN_SEC=3590`으로 켜 10초마다 토큰 갱신, 앱은 끝까지 끄지 않음. 북마크 쓰기 없음 — 동기화 3건 모두 추가·수정·삭제 0, last_synced_at만 갱신)
+    - [x] ㉡ 토큰 갱신: 45초 동안 갱신 4번, `POST /sync/chrome`은 앱 시작 때 1건 그대로
+    - [x] ㉠ 같은 실행 안 재로그인: 설정 → 로그아웃 → 앱을 끄지 않고 Google 로그인 → 자동 동기화 1건 더(1 → 2건, 건너뜀 7)
+    - [x] 로그아웃하면 동기화 상태가 비워짐(phase idle, firstSync·lastSyncedAt·lastResult null)
+    - [x] ㉢ 첫 동기화 화면: 로그아웃한 채(앱 켜 둠) 사람이 `step8-update.sql`로 last_synced_at NULL(RETURNING 1행) → 다시 로그인 → **첫 동기화 화면**(firstSync true, Default 선택, POST 0건) → '나중에 하기' → 로그아웃 → 다시 로그인 → **첫 동기화 화면이 다시 뜸**(렌더러의 '닫았음' 기억이 로그아웃에서 비워짐, POST 0건) → '가져오기'(POST 1건) → '시작하기' → 홈 111개
+    - 끝 상태: 기준값과 같음(북마크 111·고정 0·manual 0·방문 0, 토큰 0, auto_sync true, chrome_profile·선택 파일 Default, 정렬 created_desc, 사이드바 "0"), last_synced_at 2026-09-30T17:42:20Z. 앱은 창 닫기, API 끔
