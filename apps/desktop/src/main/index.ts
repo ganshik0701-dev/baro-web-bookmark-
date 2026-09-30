@@ -30,6 +30,7 @@ import {
   onAuthChange
 } from './auth'
 import { initialSyncState, runSync, type SyncState, type SyncTrigger } from './sync'
+import { createLoginWatch } from './login-watch'
 import { readBookmarksFile } from './chrome-bookmarks'
 import { findChromeProfiles, withBookmarkCounts } from './chrome-profiles'
 import {
@@ -203,8 +204,6 @@ function showTileMenu(win: BrowserWindow | null, raw: unknown): Promise<TileMenu
 let syncState: SyncState = initialSyncState
 // '지금 동기화'를 연타해도 요청은 하나만 나간다
 let pendingSync: Promise<SyncState> | null = null
-// 앱을 켠 뒤 자동 동기화는 한 번만 한다(로그인·갱신으로 상태가 여러 번 바뀌어도)
-let didStartupSync = false
 
 function setSyncState(next: SyncState): void {
   syncState = next
@@ -254,7 +253,7 @@ async function confirmSuspicious(): Promise<boolean> {
 }
 
 /**
- * 앱을 켠 뒤 한 번. 첫 동기화 전(lastSyncedAt이 null)이면 **자동으로 보내지 않고**
+ * 로그인 세션이 새로 생길 때마다 한 번(login-watch.ts). 첫 동기화 전(lastSyncedAt이 null)이면 **자동으로 보내지 않고**
  * SCR-02가 사용자에게 프로필을 고르게 한다. 설정에서 자동 동기화를 껐으면 하지 않는다(docs/01-spec.md '자동 동기화')
  */
 async function startupSync(): Promise<void> {
@@ -328,17 +327,20 @@ async function pickBookmarksFile(parent: BrowserWindow | null): Promise<ChromeRe
   return { ok: true, selection: await selectChromeFile(path), tree: result.tree }
 }
 
+// DESK-03. 로그인 세션이 새로 생길 때마다 첫 동기화 확인·자동 동기화를 한 번(같은 세션의 토큰 갱신에서는 안 함).
+// 주기적 동기화는 두지 않는다. 자동은 북마크 0개면 보내지 않고, 대량 삭제는 확인을 거친다.
+// 로그아웃하면 이전 계정의 동기화 상태를 비운다(다음 계정 값으로 다시 정한다)
+const watchLogin = createLoginWatch({
+  onLogin: () => void startupSync(),
+  onLogout: () => setSyncState(initialSyncState)
+})
+
 app.whenReady().then(() => {
   registerIpc()
   // 자동 로그인·갱신은 메인 프로세스에서 일어나므로, 바뀔 때마다 열린 창에 알린다(토큰 없는 상태만)
   onAuthChange((status) => {
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send('auth:changed', status)
-    // DESK-03. 로그인된 뒤 한 번만 자동 동기화한다(주기적 동기화는 두지 않는다).
-    // 자동은 북마크 0개면 보내지 않고, 대량 삭제는 확인을 거친다
-    if (status.session && !didStartupSync) {
-      didStartupSync = true
-      void startupSync()
-    }
+    watchLogin(status)
   })
   // safeStorage는 app ready 뒤에만 쓸 수 있어서 여기서 시작한다
   initAuth()

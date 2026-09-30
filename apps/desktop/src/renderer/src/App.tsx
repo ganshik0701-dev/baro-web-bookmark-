@@ -46,10 +46,14 @@ export default function App() {
     if (syncedAt) void queryClient.invalidateQueries({ queryKey: BOOKMARKS_KEY })
   }, [syncedAt, queryClient])
 
-  // 로그아웃하면 목록 캐시를 모두 비운다. 다음에 로그인한 계정에 이전 목록이 잠깐도 보이지 않게
+  // 로그아웃하면 목록 캐시를 모두 비운다. 다음에 로그인한 계정에 이전 목록이 잠깐도 보이지 않게.
+  // 첫 동기화 화면을 열었다/닫았다는 기억도 비운다(다음 계정이 첫 동기화 전이면 다시 열리게)
   const signedIn = Boolean(auth?.session)
   useEffect(() => {
-    if (!signedIn) queryClient.clear()
+    if (signedIn) return
+    queryClient.clear()
+    setOpenedFirstSync(false)
+    setClosedFirstSync(false)
   }, [signedIn, queryClient])
 
   // 서버가 '아직 한 번도 동기화하지 않았다'고 하면 첫 동기화 화면을 연다
