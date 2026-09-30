@@ -408,6 +408,11 @@ button:focus-visible {
   accent-color: var(--accent);
 }
 
+/* 포커스는 칸 바깥 링(위 :has 규칙)이 보여 준다. 라디오 자체의 브라우저 기본 테두리까지 겹쳐 두 겹이 되지 않게 끈다 */
+.profile-item input:focus-visible {
+  outline: none;
+}
+
 .profile-text {
   display: flex;
   flex-direction: column;
