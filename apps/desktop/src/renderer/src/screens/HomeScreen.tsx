@@ -289,7 +289,12 @@ export default function HomeScreen({ session, lastAttempt, sync, waitingLogout, 
               <>
                 {searching && (
                   <div className="search-heading">
-                    <h2 className="search-heading-title">‘{deferredQuery.trim()}’ 검색 결과</h2>
+                    {/* 검색어만 화면에서 말줄임. 글자는 DOM에 다 있어 스크린리더는 전체 문장을 읽는다 */}
+                    <h2 className="search-heading-title" title={`‘${deferredQuery.trim()}’ 검색 결과`}>
+                      <span>‘</span>
+                      <span className="search-heading-query">{deferredQuery.trim()}</span>
+                      <span>’ 검색 결과</span>
+                    </h2>
                     <span className="search-heading-count">
                       {resultCount}개 · 전체 {counts[view]}개 중
                     </span>
