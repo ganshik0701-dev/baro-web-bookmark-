@@ -219,12 +219,40 @@ function toApiError(err: unknown): ApiError {
   if (err instanceof ApiError) return err
   const blocked = findCause(err, BlockedUrl)
   if (blocked) return new ApiError('INVALID_URL', blocked.message)
+  // 여기부터는 422. 왜 실패했는지 나중에 볼 수 있게 오류 종류만 한 줄 남긴다(docs/03-api.md).
+  // 오류 메시지에는 호스트 이름·IP가 들어갈 수 있어 찍지 않는다
+  console.warn('[metadata] 가져오기 실패:', classifyFetchFailure(err))
   const failed = findCause(err, FetchFailed)
   if (failed) return new ApiError('METADATA_FETCH_FAILED', failed.message)
   if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
     return new ApiError('METADATA_FETCH_FAILED', `${TIMEOUT_MS / 1000}초 안에 응답하지 않았습니다`)
   }
   return new ApiError('METADATA_FETCH_FAILED', '페이지를 가져오지 못했습니다')
+}
+
+const DNS_CODES = new Set(['ENOTFOUND', 'EAI_AGAIN', 'EAI_FAIL', 'EAI_NODATA', 'ENODATA', 'ESERVFAIL', 'EREFUSED'])
+const TIMEOUT_CODES = new Set(['ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT'])
+const RESET_CODES = new Set(['ECONNRESET', 'EPIPE', 'UND_ERR_SOCKET', 'UND_ERR_CLOSED'])
+const UNREACHABLE_CODES = new Set(['EHOSTUNREACH', 'ENETUNREACH', 'EADDRNOTAVAIL'])
+
+/**
+ * 가져오기 실패의 종류(로그용). 오류 코드·이름만 보고 메시지는 보지 않는다(주소가 들어갈 수 있어서).
+ * 결과 예: 'DNS 실패(ENOTFOUND)', '시간 초과', '연결 거부(ECONNREFUSED)', 'TLS 오류(CERT_HAS_EXPIRED)', '응답 오류'
+ */
+export function classifyFetchFailure(err: unknown): string {
+  if (findCause(err, FetchFailed)) return '응답 오류'
+  for (let e = err, depth = 0; e instanceof Error && depth < 5; e = e.cause, depth++) {
+    if (e.name === 'TimeoutError' || e.name === 'AbortError') return '시간 초과'
+    const code = (e as { code?: unknown }).code
+    if (typeof code !== 'string' || !/^[A-Z0-9_]{2,40}$/.test(code)) continue
+    if (DNS_CODES.has(code)) return `DNS 실패(${code})`
+    if (TIMEOUT_CODES.has(code)) return `시간 초과(${code})`
+    if (code === 'ECONNREFUSED') return `연결 거부(${code})`
+    if (RESET_CODES.has(code)) return `연결 끊김(${code})`
+    if (UNREACHABLE_CODES.has(code)) return `도달 불가(${code})`
+    if (/^(ERR_TLS|ERR_SSL|CERT_|UNABLE_TO|DEPTH_ZERO|SELF_SIGNED|ERR_OSSL)/.test(code)) return `TLS 오류(${code})`
+  }
+  return `기타(${err instanceof Error ? err.name : typeof err})`
 }
 
 /**

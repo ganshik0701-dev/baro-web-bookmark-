@@ -74,6 +74,9 @@ TypeScript / Electron 33 + electron-vite / React 19 + Vite / CSS 변수(디자�
   - `--remote-debugging-port`·`--remote-debugging-pipe`·`--inspect` 계열 스위치가 있으면 창을 띄우기 전에 바로 종료한다
   - Electron Fuses(빌드 뒤 `afterPack`): `RunAsNode`·`EnableNodeCliInspectArguments`·`EnableNodeOptionsEnvironmentVariable` 끔, `OnlyLoadAppFromAsar` 켬
   - DevTools·기본 메뉴 없음(`webPreferences.devTools: false`, `Menu.setApplicationMenu(null)`). 개발용 환경 변수(`ELECTRON_RENDERER_URL`, `BARO_REFRESH_MARGIN_SEC`)는 읽지 않는다
+- 창은 앱 자신의 페이지만 연다. `will-navigate`·`will-redirect`에서 앱 주소(설치본은 `out/renderer/index.html` 파일, 개발 실행은 개발 서버 주소)가 아니면 막는다(preload의 `window.baro`가 다른 페이지에 열리지 않게)
+- IPC 처리기는 모두 공통 함수로 등록하고, 보낸 프레임(`event.senderFrame`)의 주소가 앱 주소일 때만 처리한다
+- 렌더러의 권한 요청(카메라·알림 등)은 모두 거절한다. 예외는 앱 페이지의 클립보드 쓰기 하나(확장 토큰 복사)
 - 렌더러 CSP는 빌드에서 `connect-src 'none'`(렌더러는 네트워크를 직접 쓰지 않는다. API는 메인 프로세스에서만). 개발 서버에서만 localhost·HMR 웹소켓을 허용한다
 
 ## 크롬 확장 보안 (반드시 지킬 것)

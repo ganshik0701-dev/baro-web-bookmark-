@@ -1,5 +1,17 @@
-import { app, BrowserWindow, dialog, Menu, shell, ipcMain, type MenuItemConstructorOptions, type OpenDialogOptions } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  Menu,
+  session,
+  shell,
+  ipcMain,
+  type IpcMainInvokeEvent,
+  type MenuItemConstructorOptions,
+  type OpenDialogOptions
+} from 'electron'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import type { ApiFailure, ApiSuccess, HealthResponse, MassDeleteDetails } from '@baro/shared'
 import {
   API_BASE,
@@ -40,6 +52,7 @@ import {
   type ChromeReadResult
 } from './chrome-selection'
 import { findForbiddenSwitch } from './launch-guard'
+import { appLocation, guardIpcHandler, isAllowedPermission, isAppUrl } from './app-origin'
 
 // 설치본에서는 디버깅·검사 스위치가 붙어 있으면 창을 띄우기 전에 끝낸다(CLAUDE.md 'Electron 보안').
 // 개발 실행(electron-vite dev)은 CDP로 확인해야 하므로 막지 않는다
@@ -53,6 +66,13 @@ if (app.isPackaged) {
   // 로그인 저장(session.bin)·프로필 선택이 섞이지 않게. 준비(ready) 전, userData를 처음 쓰기 전에 정해야 한다
   app.setPath('userData', join(app.getPath('appData'), 'baro'))
 }
+
+// 창에 불러오는 앱 페이지. 개발 서버 주소는 개발 실행에서만 읽는다. 설치본이 이 환경 변수로 다른 페이지를
+// 불러오면 그 페이지가 preload의 window.baro(토큰 발급 등)를 쓸 수 있게 된다
+const RENDERER_DEV_URL = app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL
+const RENDERER_FILE = join(__dirname, '../renderer/index.html')
+// 창 이동·IPC·권한 요청은 이 주소의 페이지에서 온 것만 받는다(app-origin.ts, CLAUDE.md 'Electron 보안')
+const APP_LOCATION = appLocation({ devServerUrl: RENDERER_DEV_URL, rendererFileUrl: pathToFileURL(RENDERER_FILE).href })
 
 // API 서버 주소는 api.ts에 있다(인증 호출과 같은 값을 쓰기 위해).
 // 아래 callApi는 인증이 필요 없는 health 전용이다.
@@ -105,22 +125,34 @@ function createWindow(): BrowserWindow {
     return { action: 'deny' }
   })
 
-  // 개발 서버 주소는 개발 실행에서만 읽는다. 설치본이 이 환경 변수로 다른 페이지를 불러오면
-  // 그 페이지가 preload의 window.baro(토큰 발급 등)를 쓸 수 있게 된다
-  if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
-    win.loadURL(process.env.ELECTRON_RENDERER_URL)
-  } else {
-    win.loadFile(join(__dirname, '../renderer/index.html'))
+  // 창은 앱 페이지에서 다른 주소로 넘어가지 않는다(링크·끌어 놓기·스크립트 이동·서버 리다이렉트 모두).
+  // 넘어가면 그 페이지에서도 preload의 window.baro가 열리기 때문이다
+  const blockForeignNavigation = (event: Electron.Event<{ url: string }>) => {
+    if (!isAppUrl(event.url, APP_LOCATION)) event.preventDefault()
   }
+  win.webContents.on('will-navigate', blockForeignNavigation)
+  win.webContents.on('will-redirect', blockForeignNavigation)
+
+  if (RENDERER_DEV_URL) win.loadURL(RENDERER_DEV_URL)
+  else win.loadFile(RENDERER_FILE)
 
   return win
 }
 
+/**
+ * IPC 처리기 등록은 모두 이 함수로 한다. 보낸 프레임이 앱 페이지가 아니면 처리하지 않고 거절한다
+ * (창 이동을 막아도 한 겹 더: 다른 페이지가 어떻게든 열리면 window.baro로 토큰 발급까지 갈 수 있다)
+ */
+// 처리기마다 인자 모양이 달라 ipcMain.handle과 같은 any[]를 받는다
+function handle(channel: string, handler: (event: IpcMainInvokeEvent, ...args: any[]) => unknown): void {
+  ipcMain.handle(channel, guardIpcHandler(channel, APP_LOCATION, handler))
+}
+
 // IPC 핸들러. 렌더러는 preload가 열어 준 함수로만 이걸 부른다.
 function registerIpc(): void {
-  ipcMain.handle('app:version', () => app.getVersion())
+  handle('app:version', () => app.getVersion())
 
-  ipcMain.handle('shell:openExternal', (_event, url: unknown) => {
+  handle('shell:openExternal', (_event, url: unknown) => {
     if (typeof url !== 'string') throw new Error('url은 문자열이어야 합니다')
     if (!/^https?:\/\//.test(url)) throw new Error('http/https만 열 수 있습니다')
     return shell.openExternal(url)
@@ -128,63 +160,63 @@ function registerIpc(): void {
 
   // 인자를 받지 않는다. 렌더러가 다른 주소·경로로 요청을 보낼 방법이 없게 하기 위해서다.
   // 4주차 이후 API마다 이런 좁은 핸들러를 하나씩 추가한다 (범용 'api:fetch' 같은 것은 만들지 않는다).
-  ipcMain.handle('api:health', () => callApi<HealthResponse>('/health'))
+  handle('api:health', () => callApi<HealthResponse>('/health'))
 
   // AUTH-01·02. 렌더러는 로그인 여부·이메일·만료 시각·마지막 시도 결과만 받는다. 토큰은 넘기지 않는다
-  ipcMain.handle('auth:login', async (event) => {
+  handle('auth:login', async (event) => {
     const status = await login()
     // 브라우저에서 돌아온 사용자가 바로 앱을 보도록 창을 앞으로 가져온다
     BrowserWindow.fromWebContents(event.sender)?.focus()
     return status
   })
-  ipcMain.handle('auth:status', () => getAuthStatus())
+  handle('auth:status', () => getAuthStatus())
   // SCR-01. 브라우저 대기 중인 로그인을 끝낸다(auth:login이 '취소됨'으로 끝난다)
-  ipcMain.handle('auth:cancelLogin', () => cancelLogin())
+  handle('auth:cancelLogin', () => cancelLogin())
   // AUTH-03. 로컬 로그아웃은 항상 된다. 서버 무효화 결과는 lastAttempt로 알린다
-  ipcMain.handle('auth:logout', () => logout())
+  handle('auth:logout', () => logout())
 
   // DESK-01·02. 읽기 함수는 인자를 받지 않는다. 렌더러가 경로를 정할 방법이 없어야 하므로
   // '지금 선택된 대상'만 읽는다. 경로를 인자로 받는 핸들러는 만들지 않는다(범용 파일 읽기가 된다).
-  ipcMain.handle('chrome:listProfiles', async () => withBookmarkCounts(await findChromeProfiles()))
+  handle('chrome:listProfiles', async () => withBookmarkCounts(await findChromeProfiles()))
   // 화면에 보이는 선택도 동기화(readSelectedBookmarks)와 똑같이 서버 chromeProfile을 넣어 정한다.
   // 빼면 이미 동기화한 계정에서 화면은 last_used를, 동기화는 서버 값을 쓴다(2026-09-29 발견, docs/01-spec.md)
-  ipcMain.handle('chrome:getSelection', async () => getChromeSelection((await fetchMe())?.chromeProfile))
+  handle('chrome:getSelection', async () => getChromeSelection((await fetchMe())?.chromeProfile))
   // 목록에 있는 폴더명일 때만 통과한다(selectChromeProfile이 확인한다)
-  ipcMain.handle('chrome:selectProfile', (_event, name: unknown) => selectChromeProfile(name))
-  ipcMain.handle('chrome:pickFile', (event) => pickBookmarksFile(BrowserWindow.fromWebContents(event.sender)))
-  ipcMain.handle('chrome:read', () => readSelectedBookmarks())
+  handle('chrome:selectProfile', (_event, name: unknown) => selectChromeProfile(name))
+  handle('chrome:pickFile', (event) => pickBookmarksFile(BrowserWindow.fromWebContents(event.sender)))
+  handle('chrome:read', () => readSelectedBookmarks())
 
   // DESK-03. 렌더러는 '지금 동기화'만 알린다. confirmDeleteCount 같은 숫자는 메인이 정한다
-  ipcMain.handle('sync:now', () => syncNow('manual'))
+  handle('sync:now', () => syncNow('manual'))
 
   // SCR-03. 인자를 받지 않는다(정렬·필터는 SEARCH-04에서 정해진 값만 받게 한다).
   // 토큰은 메인에서 붙이고, 렌더러는 { data, meta } 또는 { error }만 받는다
-  ipcMain.handle('bookmarks:list', () => listBookmarks())
+  handle('bookmarks:list', () => listBookmarks())
 
   // OPEN-02·03, BM-05. id는 렌더러가 보내므로 api-client가 uuid인지 확인한 뒤에만 요청한다
-  ipcMain.handle('bookmarks:visit', (_event, id: unknown) => recordVisit(id))
-  ipcMain.handle('bookmarks:setPinned', (_event, id: unknown, pinned: unknown) => setPinned(id, pinned))
-  ipcMain.handle('bookmarks:delete', (_event, id: unknown) => deleteBookmark(id))
+  handle('bookmarks:visit', (_event, id: unknown) => recordVisit(id))
+  handle('bookmarks:setPinned', (_event, id: unknown, pinned: unknown) => setPinned(id, pinned))
+  handle('bookmarks:delete', (_event, id: unknown) => deleteBookmark(id))
   // SCR-04. 값은 api-client가 shared 스키마로 다시 검사한다(주소·제목·아이콘만 받는다)
-  ipcMain.handle('bookmarks:create', (_event, raw: unknown) => createBookmark(raw))
-  ipcMain.handle('bookmarks:update', (_event, id: unknown, raw: unknown) => updateBookmark(id, raw))
-  ipcMain.handle('metadata:fetch', (_event, url: unknown) => fetchMetadata(url))
+  handle('bookmarks:create', (_event, raw: unknown) => createBookmark(raw))
+  handle('bookmarks:update', (_event, id: unknown, raw: unknown) => updateBookmark(id, raw))
+  handle('metadata:fetch', (_event, url: unknown) => fetchMetadata(url))
   // SEARCH-05. 저장은 값 하나만 받고 메인이 4종인지 다시 검사한다
-  ipcMain.handle('settings:getSort', () => getSortOption())
-  ipcMain.handle('settings:saveSort', (_event, value: unknown) => saveSortOption(value))
+  handle('settings:getSort', () => getSortOption())
+  handle('settings:saveSort', (_event, value: unknown) => saveSortOption(value))
   // SCR-05. 참/거짓·이름·uuid 검사는 api-client가 한다(렌더러가 보낸 값이 그대로 오므로)
-  ipcMain.handle('settings:getAutoSync', () => getAutoSync())
-  ipcMain.handle('settings:saveAutoSync', (_event, value: unknown) => saveAutoSync(value))
-  ipcMain.handle('tokens:list', () => listTokens())
-  ipcMain.handle('tokens:create', (_event, name: unknown) => createToken(name))
-  ipcMain.handle('tokens:revoke', (_event, id: unknown) => revokeToken(id))
+  handle('settings:getAutoSync', () => getAutoSync())
+  handle('settings:saveAutoSync', (_event, value: unknown) => saveAutoSync(value))
+  handle('tokens:list', () => listTokens())
+  handle('tokens:create', (_event, name: unknown) => createToken(name))
+  handle('tokens:revoke', (_event, id: unknown) => revokeToken(id))
   // 보조 메뉴는 OS 네이티브 메뉴로 띄우고, 고른 항목 이름만 돌려준다(요청은 렌더러가 항목별로 한다)
-  ipcMain.handle('bookmarks:menu', (event, raw: unknown) =>
+  handle('bookmarks:menu', (event, raw: unknown) =>
     showTileMenu(BrowserWindow.fromWebContents(event.sender), raw)
   )
-  ipcMain.handle('sync:state', () => syncState)
+  handle('sync:state', () => syncState)
   // SCR-02 모달의 답. true/false만 받는다(삭제 개수는 메인이 들고 있다)
-  ipcMain.handle('sync:confirm', (_event, ok: unknown) => settleConfirm(ok === true))
+  handle('sync:confirm', (_event, ok: unknown) => settleConfirm(ok === true))
 }
 
 // ─── OPEN-03 보조 메뉴 ────────────────────────────────────────
@@ -356,6 +388,13 @@ const watchLogin = createLoginWatch({
 app.whenReady().then(() => {
   // 설치본에는 기본 메뉴(보기 → 개발자 도구, 새로 고침 등)를 두지 않는다. 앱 화면에는 메뉴가 필요 없다
   if (app.isPackaged) Menu.setApplicationMenu(null)
+  // 권한 요청(카메라·알림 등)은 모두 거절한다. 예외는 앱 페이지의 클립보드 쓰기(확장 토큰 복사) 하나
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback, details) =>
+    callback(isAllowedPermission(permission, details.requestingUrl, APP_LOCATION))
+  )
+  session.defaultSession.setPermissionCheckHandler((_wc, permission, _origin, details) =>
+    isAllowedPermission(permission, details.requestingUrl, APP_LOCATION)
+  )
   registerIpc()
   // 자동 로그인·갱신은 메인 프로세스에서 일어나므로, 바뀔 때마다 열린 창에 알린다(토큰 없는 상태만)
   onAuthChange((status) => {

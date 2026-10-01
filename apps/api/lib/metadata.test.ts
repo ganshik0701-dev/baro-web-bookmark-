@@ -9,9 +9,10 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join, relative } from 'node:path'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from './errors'
 import {
+  classifyFetchFailure,
   createMetadataFetcher,
   decodeHtml,
   extractMetadata,
@@ -349,6 +350,60 @@ describe.skipIf(!process.env.METADATA_LIVE)('SSRF: 인터넷이 필요한 확인
   it('같은 리다이렉터로 공인 사이트에 가면 성공한다(차단이 리다이렉트 자체를 막는 게 아님)', async () => {
     const meta = await fetchMetadata('https://httpbin.org/redirect-to?url=https%3A%2F%2Fexample.com%2F')
     expect(meta.title).toBe('Example Domain')
+  })
+})
+
+describe('422 로그: 오류 종류만 남긴다 (주소·도메인은 남기지 않는다)', () => {
+  const withCode = (code: string) => Object.assign(new Error(`getaddrinfo ${code} secret-host.example`), { code })
+  const wrapped = (cause: Error) => new TypeError('fetch failed', { cause })
+
+  it.each([
+    [wrapped(withCode('ENOTFOUND')), 'DNS 실패(ENOTFOUND)'],
+    [wrapped(withCode('EAI_AGAIN')), 'DNS 실패(EAI_AGAIN)'],
+    [wrapped(withCode('ECONNREFUSED')), '연결 거부(ECONNREFUSED)'],
+    [wrapped(withCode('ECONNRESET')), '연결 끊김(ECONNRESET)'],
+    [wrapped(withCode('UND_ERR_CONNECT_TIMEOUT')), '시간 초과(UND_ERR_CONNECT_TIMEOUT)'],
+    [wrapped(withCode('CERT_HAS_EXPIRED')), 'TLS 오류(CERT_HAS_EXPIRED)'],
+    [wrapped(withCode('EHOSTUNREACH')), '도달 불가(EHOSTUNREACH)'],
+    [Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' }), '시간 초과'],
+    [new RangeError('x'), '기타(RangeError)'],
+    ['문자열 오류', '기타(string)']
+  ])('%s → %s', (err, expected) => {
+    const kind = classifyFetchFailure(err)
+    expect(kind).toBe(expected)
+    expect(kind).not.toContain('secret-host')
+  })
+
+  it('이상한 code 값은 그대로 찍지 않는다', () => {
+    expect(classifyFetchFailure(wrapped(withCode('secret-host.example')))).toBe('기타(TypeError)')
+  })
+
+  it('실제 가져오기 실패(DNS)에서 한 줄만 남기고, 주소는 들어가지 않는다', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    try {
+      const fetchNoDns = createMetadataFetcher({
+        ...PRODUCTION_POLICY,
+        resolve: async () => {
+          throw withCode('ENOTFOUND')
+        }
+      })
+      expect(await apiError(fetchNoDns('http://secret-host.example/path?q=1'))).toMatchObject({ code: 'METADATA_FETCH_FAILED' })
+      expect(warn).toHaveBeenCalledTimes(1)
+      const line = warn.mock.calls[0].map(String).join(' ')
+      expect(line).toBe('[metadata] 가져오기 실패: DNS 실패(ENOTFOUND)')
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
+  it('차단(400)은 로그를 남기지 않는다', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    try {
+      expect(await apiError(fetchMetadata('http://127.0.0.1/'))).toMatchObject({ code: 'INVALID_URL' })
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+    }
   })
 })
 

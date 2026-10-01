@@ -39,6 +39,7 @@
     - 정상 실행: 오류 없이 로그인 화면, 메뉴 막대 없음, 데이터 폴더 `%APPDATA%\baro`
     - CSP: 설치본은 DevTools가 없고 파일 로그에 콘솔이 안 남아, 같은 `out/`을 패키지 없이 CDP로 띄워 확인 → 앱 자체 위반 0건(양성 대조 `fetch` 1건은 'Refused to connect'로 잡힘). 404 28건은 아이콘 없는 사이트의 Google 파비콘(원래 동작)
     - 이 CDP 실행의 부작용: 개발 폴더 로그인으로 홈이 열려 **앱 시작 자동 동기화 1회**(허용된 예외), 화면 기준 북마크 111·고정 0. `session.bin`은 토큰 갱신으로 시각만 바뀜, `chrome-selection.json`(Default) 그대로. manual·토큰·last_synced_at은 SQL 미확인
+    - (정리, 2026-10-01 사람 결정) CSP 확인 실행 두 번 모두: 읽기와 CSP에 막힌 요청뿐, 앱 시작 자동 동기화 1회 외 쓰기 없음. manual·토큰은 이 실행으로 바뀔 경로가 없어 조회 생략(last_synced_at은 자동 동기화로 갱신되는 것이 정해진 동작)
   - [x] 사람 확인 1차 (2026-10-01): 원클릭 설치(선택 화면 없음), 바로가기 "바로"(바탕 화면·시작 메뉴), 메뉴 막대 없음, 제거(바로가기·제거 목록 없어짐), 데이터 폴더 분리(설치본은 `%APPDATA%\baro`만 씀, 개발 폴더는 그대로) 확인
     - **정정(2차에서 발견)**: 1차에 "설치 폴더 없어짐"으로 적었으나 **미확인**이었다. 실제 설치 폴더는 `%LOCALAPPDATA%\Programs\@barodesktop`이었는데 Claude가 `%LOCALAPPDATA%\Programs\baro`를 보고 "없음"으로 판단했다. 바로가기·제거 목록 확인은 유효
     - 로그인 없이 로그인 화면만 보고 제거해서 session.bin이 생기지 않았다(정상). **설치본 로그인과 '제거 뒤 session.bin 남음'은 미확인** → 2차에서 확인
@@ -55,3 +56,27 @@
     - 설치 (사람) → `%LOCALAPPDATA%\Programs\baro` 확인 (Claude: 파일 시각 14:50 = 이번 빌드, 실행 중 프로세스·제거 목록 UninstallString·바탕 화면/시작 메뉴 "바로" 바로가기 모두 `%LOCALAPPDATA%\Programs\baro\baro.exe`, session.bin 아직 없음)
     - Google 로그인·홈 111 (사람) → `%APPDATA%\baro\session.bin` 생김(62바이트, 16:33:14), 개발 폴더 그대로 (Claude). 첫 동기화 화면은 서버 lastSyncedAt이 있어 안 뜸(명세대로), 선택 파일 없음
     - 로그아웃 없이 제거 (사람) → 제거 목록·바로가기·프로세스 없음, **session.bin 남음**(16:33:14 그대로), 설치 폴더는 빈 폴더로 남음(2차와 같음, 빈 폴더만 지움) (Claude)
+- [x] 보안 점검 (2026-10-01, 점검·수정·재확인 끝)
+  - 이미 끝(설치 파일 묶음): 디버깅 스위치·Fuses·DevTools·메뉴·빌드 CSP·ELECTRON_RENDERER_URL·데이터 폴더 분리·설치본 비밀값 없음
+  - ② 토큰 노출(코드 읽기): 문제 없음. 콘솔은 오류 메시지만, preload는 정해진 함수만(ipcRenderer 그대로 노출 없음), 상태 IPC는 이메일·만료 시각만, 로그인 루프백은 127.0.0.1·GET /callback만·2분 뒤 닫힘·PKCE verifier는 메인 밖으로 안 나감, 확장은 storage.local에만·화면엔 끝 4자리
+  - ③ 위험 URL(코드 읽기): 문제 없음. 서버 입력 경로(추가·수정·/metadata·동기화 항목별) 모두 shared `httpUrl`, 거부 테스트 8종, 열기는 메인에서 `^https?://`만, 새 창도 http(s)만 OS 브라우저로, 프로필 선택은 찾은 이름 중에서만
+  - ④ SSRF: `metadata.test` 82개 통과(인터넷 필요 11개 포함, DB 안 씀)
+    - DNS 4.8초 메모 재현(임시 테스트, 커밋 안 함): 가짜 DNS 5초 지연에도 3,006ms에 끊김 → 3초 제한은 가져오기 전체에 걸림. 이 PC는 점 없는 호스트(`example`) DNS 자체가 약 2.7초, 함수는 2.7초에 끝. 나머지는 인증·속도 제한·개발 서버 시간으로 봄 → 03-api 문구 정리
+    - 운영 API에 막혀야 할 주소 5개 각 1번(앱 IPC, 쓰기는 rate_limits 카운터만): `http://127.0.0.1/` 400 INVALID_URL(내부 주소) · `http://169.254.169.254/latest/meta-data/` 400 INVALID_URL(내부 주소) · `http://localhost:3000/api/v1/health` 400 INVALID_URL(포트) · `https://example.com:8443/` 400 INVALID_URL(포트) · `http://127.0.0.1.nip.io/` **422 METADATA_FETCH_FAILED**(일반 문구, 207ms)
+    - nip.io 422: 로컬에서는 OS DNS·공개 DNS 모두 127.0.0.1 → 400 INVALID_URL. 코드상 답 중 하나라도 공인 IP가 아니면 접속 전에 거절하므로 내부로 접속한 것은 아님. 운영에서 DNS 조회가 실패한 것으로 보이나 원인 미확인(가져오기 오류를 로그에 남기지 않음)
+  - ⑤ 타인 데이터
+    - 1단계: 9개 라우트 모두 `withAuth`(health 제외), lib 함수는 모두 `withUserDb`. JWT는 ES256만·issuer·audience·role=authenticated·sub UUID. RLS SQL(`sec-rls.sql`, 읽기 전용, 사람 실행): public 6개 테이블 모두 RLS 켜짐(rls_forced는 false — 소유자 연결은 우회하지만 API는 `withUserDb`로 `authenticated` 역할로 바꿔 쿼리한다). api_tokens·bookmarks·groups·profiles·visit_logs는 SELECT·INSERT·UPDATE·DELETE 정책 4개씩, 모두 `authenticated`·본인 행(`user_id`/`id = auth.uid()`). rate_limits는 정책 0(02-db 설계대로 함수로만)
+    - (가) 실제 DB 테스트 중 타인 항목 7개만(`-t "남의|다른 사용자|RLS|내 것만"`): 7개 통과. 실행 전후 읽기 전용 개수 같음(사용자 2·가짜 0·북마크 111·토큰 0). 정리 SQL은 `.local/manual-check/sec-fake-users-cleanup.sql`에 준비만
+    - (가)는 JWT 검증을 건너뛰고 AuthContext를 직접 만들어 lib를 부른다(그 아래 withUserDb·RLS·user_id 조건은 운영 DB 그대로). 가짜 사용자는 실제로 커밋되고 afterAll에서 지워서, 실패하면 남을 수 있다 → JWT는 가짜 JWKS 단위 테스트로 채우기로(사람 결정), (나) 두 번째 계정은 안 함
+  - ① Electron(코드 읽기 + CDP, out/ 운영 빌드를 패키지 없이 실행, 개발 폴더 로그인으로 앱 시작 자동 동기화 1회)
+    - 끌어 놓기: CDP 끌기 흉내가 페이지에 drop 이벤트를 전달하지 못해(대조 리스너 0건) **판단 불가**
+    - 창 이동: `location.href`를 미끼 서버로 바꾸자 그 페이지에서 `window.baro`(함수 32개, createToken 포함)가 그대로 있음 → will-navigate 거부·IPC 보낸 쪽 확인이 없음을 확인(그 페이지에서 함수는 부르지 않음)
+  - 수정 결정(사람): 1 창 이동 거부 + IPC senderFrame 확인, 2 권한 요청 거부, 3 03-api 문구, 4 JWT 단위 테스트, 6 `/metadata` 422 오류 종류 로그(주소·도메인·사용자 id 없이). 5(실패 시 가짜 사용자 남음)는 PROGRESS v1.1 '개발용 DB 분리'와 묶음. 수정은 문서 먼저
+  - [x] 문서: CLAUDE.md 'Electron 보안' 3줄(앱 주소만 열기·IPC senderFrame·권한 거절, 클립보드 쓰기만 예외), 03-api `/metadata`(3초는 외부 페이지 가져오기만·422 오류 종류 로그), PROGRESS v1.1 개발용 DB 분리
+  - [x] 코드: `main/app-origin.ts`(앱 주소 검사·IPC 감싸기·권한 판단, 테스트 10개) → `index.ts`에서 will-navigate·will-redirect 거부, IPC 30개 모두 `handle()` 하나로 등록(직접 `ipcMain.handle`은 그 안 1곳), 권한 요청·확인 처리기. API `classifyFetchFailure` + 422 때 `[metadata] 가져오기 실패: <종류>` 한 줄(테스트 13개, 주소 안 들어감·400은 로그 없음), `lib/auth.test.ts` 17개(가짜 JWKS, DB 없음: 올바른 토큰·거절 10종·헤더 없음·확장 토큰 DB 전 401·JWKS 장애 500·429). desktop 285·API(DB 없는 것) 135 통과, typecheck 둘 다 통과
+  - [x] 재확인 (새 `out/`를 패키지 없이 CDP로, 앱 시작 자동 동기화 1회·`/metadata` 1건 외 쓰기 없음, 끝난 뒤 읽기 전용 개수 그대로: 사용자 2·가짜 0·북마크 111·토큰 0)
+    - 정상 화면 홈 111. 앱 페이지에서 IPC 25개 모두 처리기까지 감(읽기는 정상 값, 쓰기 채널은 요청 전에 거절되는 입력만 보내 INVALID_ID·INVALID_INPUT). 안 부른 5개(login·logout·sync:now·pickFile·menu)는 브라우저·쓰기·대화 상자라 뺌, 같은 `handle()`로 등록
+    - `location.href` → 미끼 주소·다른 로컬 파일(win.ini) 모두 막힘(창 그대로, 미끼 요청 0)
+    - CDP로 창을 미끼 페이지로 강제로 옮긴 뒤(will-navigate를 지나지 않는 이동) 그 페이지의 IPC 4개(createToken 포함) 모두 '허용하지 않는 페이지에서 온 요청입니다'로 거절, 앱 페이지로 돌아오면 정상
+    - 권한: 클립보드 쓰기 ok, 알림 denied, 카메라 NotAllowedError, 위치 거절
+    - 개발 실행(`pnpm dev:desktop`, localhost:5173, API 끔): IPC 정상, 미끼 이동 막힘. 끌어 놓기(사람): 크롬 링크·파일을 창에 놓아도 화면 그대로, 뒤에 창 주소 localhost:5173 그대로·IPC 정상(Claude)
