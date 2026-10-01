@@ -70,6 +70,11 @@ TypeScript / Electron 33 + electron-vite / React 19 + Vite / CSS 변수(디자�
 - 크롬 `Bookmarks` 파일은 **읽기 전용**으로만 다룬다. 절대 쓰지 않는다
 - 리프레시 토큰은 `safeStorage`로 암호화해 저장한다. 평문 파일 저장 금지
 - 북마크는 `shell.openExternal`로 OS 기본 브라우저에서 연다. 앱 내부 창에서 열지 않는다
+- 설치본(`app.isPackaged`)에는 디버깅·코드 주입 통로를 두지 않는다
+  - `--remote-debugging-port`·`--remote-debugging-pipe`·`--inspect` 계열 스위치가 있으면 창을 띄우기 전에 바로 종료한다
+  - Electron Fuses(빌드 뒤 `afterPack`): `RunAsNode`·`EnableNodeCliInspectArguments`·`EnableNodeOptionsEnvironmentVariable` 끔, `OnlyLoadAppFromAsar` 켬
+  - DevTools·기본 메뉴 없음(`webPreferences.devTools: false`, `Menu.setApplicationMenu(null)`). 개발용 환경 변수(`ELECTRON_RENDERER_URL`, `BARO_REFRESH_MARGIN_SEC`)는 읽지 않는다
+- 렌더러 CSP는 빌드에서 `connect-src 'none'`(렌더러는 네트워크를 직접 쓰지 않는다. API는 메인 프로세스에서만). 개발 서버에서만 localhost·HMR 웹소켓을 허용한다
 
 ## 크롬 확장 보안 (반드시 지킬 것)
 
@@ -98,6 +103,7 @@ TypeScript / Electron 33 + electron-vite / React 19 + Vite / CSS 변수(디자�
 2. 순서는 API → 화면 → 테스트. API는 화면을 붙이기 전에 직접 호출해 확인한다
 3. 스키마나 명세를 바꿔야 할 것 같으면 코드를 고치기 전에 문서 수정안을 먼저 제안한다
 4. 완료되면 무엇을 왜 그렇게 했는지 3줄 이내로 설명한다. 사용자가 코드를 읽고 이해하는 것이 이 프로젝트의 목적이다
+   - 모든 답변·보고·진행 알림은 한국어로 쓴다
 5. 요청하지 않은 기능은 추가하지 않는다. P0가 끝나기 전에 P1·P2에 손대지 않는다
 6. 작업을 마치면 반드시 PROGRESS.md와 그 주차의 `docs/progress/week-NN.md`를 갱신한다. 사람이 따로 시키지 않아도 한다
    - 끝난 항목의 `- [ ]` 를 `- [x]` 로 바꾼다. PROGRESS.md와 week-NN.md **둘 다**

@@ -1,12 +1,31 @@
+# Windows 설치 파일 설정 (docs/01-spec.md '3.8 데스크톱 앱' 설치·제거)
 appId: com.baro.app
+# 설치 폴더·실행 파일 이름(영문). 화면에 보이는 이름은 아래 nsis의 '바로'
 productName: baro
+# 설치본 안 package.json의 name. NSIS는 설치 폴더 이름을 productName이 아니라 이 값으로 정한다
+# (그대로 두면 @baro/desktop → Programs\@barodesktop). 개발 실행에는 영향 없다
+extraMetadata:
+  name: baro
 directories:
   output: release
+  # 아이콘·afterPack 스크립트가 있는 곳. 설치본 안에는 들어가지 않는다(files는 out/**만)
+  buildResources: build
 files:
   - out/**
+  # 안전장치: 원본 지도(.map)는 설치본에 넣지 않는다
+  - '!**/*.map'
+# baro.exe의 Electron Fuses를 바꾼다(디버깅·코드 주입 통로 닫기, CLAUDE.md 'Electron 보안')
+afterPack: build/after-pack.cjs
 win:
   target: nsis
+  icon: build/icon.png
   artifactName: baro-${version}-setup.${ext}
 nsis:
-  oneClick: false
-  allowToChangeInstallationDirectory: true
+  # 원클릭: 화면 선택 없이 사용자별 폴더(%LOCALAPPDATA%\Programs\baro)에 설치하고, 끝나면 앱을 켠다
+  oneClick: true
+  perMachine: false
+  # 바탕 화면·시작 메뉴 바로가기와 '앱 및 기능' 제거 목록에 보이는 이름
+  shortcutName: 바로
+  uninstallDisplayName: 바로
+  # 제거해도 로그인 저장(session.bin)·크롬 프로필 선택은 남긴다(기본값, docs/01-spec.md)
+  deleteAppDataOnUninstall: false

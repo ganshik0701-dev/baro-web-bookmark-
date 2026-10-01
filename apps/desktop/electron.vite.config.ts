@@ -3,7 +3,8 @@ import react from '@vitejs/plugin-react'
 import type { Plugin } from 'vite'
 
 // 개발 서버가 index.html을 보낼 때만 CSP를 넓힌다.
-// - connect-src: Vite HMR 웹소켓, 로컬 API
+// - connect-src: index.html(빌드)은 'none'이다. 렌더러는 네트워크를 직접 쓰지 않는다(API는 메인 프로세스).
+//   개발 서버에서만 Vite 모듈 요청과 HMR 웹소켓을 허용하도록 값을 통째로 바꾼다
 // - script-src 'unsafe-inline': React 핫 리로드가 HTML에 넣는 인라인 스크립트
 // apply: 'serve'라서 빌드 때는 실행되지 않고, 설치 파일에는 index.html에 적힌 CSP가 그대로 들어간다.
 function devCsp(): Plugin {
@@ -16,8 +17,8 @@ function devCsp(): Plugin {
         throw new Error('index.html의 CSP에서 connect-src를 찾지 못했습니다')
       }
       return html.replace(
-        /connect-src ([^;"]*)/,
-        "connect-src $1 ws://localhost:* http://localhost:*; script-src 'self' 'unsafe-inline'"
+        /connect-src [^;"]*/,
+        "connect-src 'self' ws://localhost:* http://localhost:*; script-src 'self' 'unsafe-inline'"
       )
     }
   }

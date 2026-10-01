@@ -103,6 +103,10 @@ export default function SettingsScreen({ session, sync, waitingLogout, onLogout,
               ? '이 PC에 로그인이 저장되어 있습니다.'
               : '로그인을 이 PC에 저장하지 못해 앱을 다시 켜면 로그아웃됩니다.'}
           </span>
+          {/* 파비콘을 Google s2로 받는 한계를 알린다(docs/01-spec.md '메인 그리드 규칙'). 근본 해결은 v1.1 */}
+          <span className="settings-detail">
+            아이콘을 불러오려고 북마크한 사이트의 도메인을 Google에 보냅니다. 주소의 나머지 부분과 계정 정보는 보내지 않습니다.
+          </span>
         </span>
         <button type="button" className="button-secondary settings-button" onClick={onLogout} disabled={waitingLogout}>
           {waitingLogout ? '로그아웃하는 중…' : '로그아웃'}

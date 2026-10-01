@@ -25,3 +25,33 @@
     - [x] 로그아웃하면 동기화 상태가 비워짐(phase idle, firstSync·lastSyncedAt·lastResult null)
     - [x] ㉢ 첫 동기화 화면: 로그아웃한 채(앱 켜 둠) 사람이 `step8-update.sql`로 last_synced_at NULL(RETURNING 1행) → 다시 로그인 → **첫 동기화 화면**(firstSync true, Default 선택, POST 0건) → '나중에 하기' → 로그아웃 → 다시 로그인 → **첫 동기화 화면이 다시 뜸**(렌더러의 '닫았음' 기억이 로그아웃에서 비워짐, POST 0건) → '가져오기'(POST 1건) → '시작하기' → 홈 111개
     - 끝 상태: 기준값과 같음(북마크 111·고정 0·manual 0·방문 0, 토큰 0, auto_sync true, chrome_profile·선택 파일 Default, 정렬 created_desc, 사이드바 "0"), last_synced_at 2026-09-30T17:42:20Z. 앱은 창 닫기, API 끔
+- [x] 설치 파일 묶음 (2026-10-01)
+  - 사람 결정: 원클릭 설치(`oneClick: true`, `perMachine: false`, 폴더 선택 없음), 실행 파일·설치 경로 영문 `baro`, 바로가기·제거 목록 이름 "바로", 제거해도 앱 데이터 남김(기본값), `@electron/fuses` 개발 의존성 추가, 파비콘은 README·계정 카드에 알리고 근본 해결은 v1.1, 빌드 CSP `connect-src 'none'`
+  - 문서: CLAUDE.md 'Electron 보안'(설치본 디버깅 통로 없음·Fuses·DevTools·CSP), 01-spec '설치·제거'(원클릭, 데이터 폴더 `%APPDATA%\baro` 개발 앱과 분리, 제거해도 session.bin 남음)·파비콘 한계 '배포 때 알리기로 결정'·계정 카드 안내 문구, README '개인정보 안내'
+  - 코드: `main/launch-guard.ts`(설치본에서 `--remote-debugging-*`·`--inspect*`·`--js-flags`면 창 전에 종료, `-`·대문자도) + 테스트 5개, 설치본만 userData `%APPDATA%\baro`·`devTools` 끔·기본 메뉴 없음, `ELECTRON_RENDERER_URL`은 개발에서만, `index.html` CSP `connect-src 'none'`(devCsp가 개발 서버에서만 통째로 바꿈), 계정 카드 안내 한 줄 → desktop 275 통과, typecheck 통과
+  - 빌드 설정: `electron-builder.yml`(원클릭·이름·아이콘 `build/icon.png`(로고 SVG에서 256px)·`afterPack: build/after-pack.cjs`·`'!**/*.map'`), Fuses: RunAsNode·EnableNodeOptionsEnvironmentVariable·EnableNodeCliInspectArguments 끔, OnlyLoadAppFromAsar 켬
+  - `electron-store`·`@fontsource/hahmlet`을 devDependencies로(dependencies 비움): 첫 빌드 asar에 node_modules 21개 패키지 26MB(ajv `.map` 109개, 글꼴 중복 24MB) → 0, asar 28MB → 7.7MB, 설치 파일 101MB → 83MB
+  - 빌드 환경: winCodeSign 묶음의 macOS 심볼릭 링크 2개를 만들 권한이 없어 실패 → 캐시에 그 둘만 빼고 직접 풂(사람 승인). NSIS 플러그인 동시 내려받기 충돌 1회는 다시 실행으로 해결
+  - [x] 결과물 검사 (Claude, `release\win-unpacked\baro.exe`)
+    - asar: node_modules 없음, `.map`·`.env`·`sourceMappingURL` 0, localhost 0(127.0.0.1은 로그인 루프백만), 운영 API 주소만, 서비스 키·DB 주소 없음, `BARO_REFRESH_MARGIN_SEC`·`ELECTRON_RENDERER_URL`은 isPackaged 검사 안에서만
+    - 금지 스위치 4종(`--remote-debugging-port`·`-pipe`·`--inspect`·`--inspect-brk`): 0.5~1.2초 안에 종료 코드 1, 열린 포트 없음, 데이터 폴더 안 생김, 개발 폴더 변화 없음
+    - `ELECTRON_RUN_AS_NODE=1`: Node로 안 돎(표시 파일 안 생김), 평범한 앱으로 로그인 화면. `ELECTRON_RENDERER_URL`=미끼 서버: 요청 0건, 로그인 화면
+    - 정상 실행: 오류 없이 로그인 화면, 메뉴 막대 없음, 데이터 폴더 `%APPDATA%\baro`
+    - CSP: 설치본은 DevTools가 없고 파일 로그에 콘솔이 안 남아, 같은 `out/`을 패키지 없이 CDP로 띄워 확인 → 앱 자체 위반 0건(양성 대조 `fetch` 1건은 'Refused to connect'로 잡힘). 404 28건은 아이콘 없는 사이트의 Google 파비콘(원래 동작)
+    - 이 CDP 실행의 부작용: 개발 폴더 로그인으로 홈이 열려 **앱 시작 자동 동기화 1회**(허용된 예외), 화면 기준 북마크 111·고정 0. `session.bin`은 토큰 갱신으로 시각만 바뀜, `chrome-selection.json`(Default) 그대로. manual·토큰·last_synced_at은 SQL 미확인
+  - [x] 사람 확인 1차 (2026-10-01): 원클릭 설치(선택 화면 없음), 바로가기 "바로"(바탕 화면·시작 메뉴), 메뉴 막대 없음, 제거(바로가기·제거 목록 없어짐), 데이터 폴더 분리(설치본은 `%APPDATA%\baro`만 씀, 개발 폴더는 그대로) 확인
+    - **정정(2차에서 발견)**: 1차에 "설치 폴더 없어짐"으로 적었으나 **미확인**이었다. 실제 설치 폴더는 `%LOCALAPPDATA%\Programs\@barodesktop`이었는데 Claude가 `%LOCALAPPDATA%\Programs\baro`를 보고 "없음"으로 판단했다. 바로가기·제거 목록 확인은 유효
+    - 로그인 없이 로그인 화면만 보고 제거해서 session.bin이 생기지 않았다(정상). **설치본 로그인과 '제거 뒤 session.bin 남음'은 미확인** → 2차에서 확인
+  - [x] 사람 확인 2차 (2026-10-01): 다시 설치 → Google 로그인 → 홈 111 → 계정 카드 안내 문구 (사람) → `%APPDATA%\baro\session.bin` 생김(62바이트, 14:11), 개발 폴더 그대로 (Claude) → 로그아웃 없이 제거 (사람) → session.bin 남음, 제거 목록·바로가기 없어짐 (Claude)
+    - 발견: 설치 폴더가 `%LOCALAPPDATA%\Programs\@barodesktop`(실행 중 프로세스 경로·제거 목록 UninstallString으로 확인). electron-builder가 설치 폴더 이름을 package.json `name`(`@baro/desktop`)에서 만든다 → `extraMetadata.name: baro`로 고침(사람 승인)
+    - 발견: 제거 뒤 그 설치 폴더가 **빈 폴더로 남음**(파일 0개). NSIS 제거 프로그램이 자기 폴더를 못 지우는 경우가 흔하다. 빈 폴더만 지움(빈 폴더 전용 삭제)
+    - 아이콘 색: 시안 로고(B_Login·B_Icon `{{accent}}` 기본 #2F5BD3, 모서리 14/46, 흰 번개 2.4)와 `build/icon.png`·baro.exe·setup.exe 아이콘 배경이 모두 rgb(47,91,211) = `--accent`로 같다 → 바꾸지 않음
+  - [x] `extraMetadata` 다시 빌드 결과물 검사 (Claude, 2026-10-01 14:51): asar package.json name `baro`, 이전 항목 전부 같은 결과(node_modules 0·`.map` 0·localhost 0·운영 API만·비밀값 없음·Fuses 4개, 금지 스위치 4종 종료 코드 1·포트 없음, RUN_AS_NODE 표시 파일 없음, RENDERER_URL 미끼 요청 0, 정상 실행 로그인 화면, CSP 앱 위반 0·대조 1건 잡힘)
+    - 검사 전에 2차 `%APPDATA%\baro\session.bin`을 scratchpad로 **옮김**(지우지 않음): 로그인된 채로 실행하면 검사마다 자동 동기화가 돌고, 3차는 로그인 화면부터 봐야 해서
+    - CSP용 CDP 실행 부작용: 개발 폴더 로그인으로 **앱 시작 자동 동기화 1회**(허용된 예외), 화면 전체 111·고정됨 0. 개발 폴더 `session.bin`은 토큰 갱신으로 시각만 바뀜, 선택 파일 Default 그대로
+  - [x] 사람 확인 3차(`extraMetadata` 다시 빌드, 한 단계씩): 설치 → 설치 폴더 `%LOCALAPPDATA%\Programs\baro` → 아이콘 색 → 로그인 → 로그아웃 없이 제거 → session.bin 남음 (2026-10-01)
+    - 첫 시도(16:02 확인): `%APPDATA%\baro\session.bin` 없음. 14:51 빌드 뒤 설치 흔적도 없음(`Programs` 폴더 마지막 변경 14:49, `%APPDATA%\baro` 마지막 변경 14:52 = Claude 검사, 바로가기·제거 목록 없음) → 설치·로그인이 이 빌드로 이뤄졌는지 확인할 수 없어 **미확인**, 한 단계씩 처음부터 다시
+    - 아이콘 색은 B 시안(#2F5BD3)이 맞음(사람 확인, 예전 시안과 헷갈렸던 것)
+    - 설치 (사람) → `%LOCALAPPDATA%\Programs\baro` 확인 (Claude: 파일 시각 14:50 = 이번 빌드, 실행 중 프로세스·제거 목록 UninstallString·바탕 화면/시작 메뉴 "바로" 바로가기 모두 `%LOCALAPPDATA%\Programs\baro\baro.exe`, session.bin 아직 없음)
+    - Google 로그인·홈 111 (사람) → `%APPDATA%\baro\session.bin` 생김(62바이트, 16:33:14), 개발 폴더 그대로 (Claude). 첫 동기화 화면은 서버 lastSyncedAt이 있어 안 뜸(명세대로), 선택 파일 없음
+    - 로그아웃 없이 제거 (사람) → 제거 목록·바로가기·프로세스 없음, **session.bin 남음**(16:33:14 그대로), 설치 폴더는 빈 폴더로 남음(2차와 같음, 빈 폴더만 지움) (Claude)

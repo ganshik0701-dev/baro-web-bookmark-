@@ -39,6 +39,20 @@ import {
   selectChromeProfile,
   type ChromeReadResult
 } from './chrome-selection'
+import { findForbiddenSwitch } from './launch-guard'
+
+// 설치본에서는 디버깅·검사 스위치가 붙어 있으면 창을 띄우기 전에 끝낸다(CLAUDE.md 'Electron 보안').
+// 개발 실행(electron-vite dev)은 CDP로 확인해야 하므로 막지 않는다
+if (app.isPackaged) {
+  const forbidden = findForbiddenSwitch(process.argv)
+  if (forbidden) {
+    console.error(`허용하지 않는 실행 스위치: --${forbidden}`)
+    app.exit(1)
+  }
+  // 설치본 데이터 폴더는 %APPDATA%\baro로 개발 앱(%APPDATA%\@baro\desktop)과 나눈다(docs/01-spec.md '설치·제거').
+  // 로그인 저장(session.bin)·프로필 선택이 섞이지 않게. 준비(ready) 전, userData를 처음 쓰기 전에 정해야 한다
+  app.setPath('userData', join(app.getPath('appData'), 'baro'))
+}
 
 // API 서버 주소는 api.ts에 있다(인증 호출과 같은 값을 쓰기 위해).
 // 아래 callApi는 인증이 필요 없는 health 전용이다.
@@ -77,7 +91,9 @@ function createWindow(): BrowserWindow {
       // 보안 기본값 (CLAUDE.md 참고): 렌더러에서 Node를 쓰지 않는다
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true
+      sandbox: true,
+      // 설치본에서는 개발자 도구를 열 수 없게 한다(메뉴·단축키 모두)
+      devTools: !app.isPackaged
     }
   })
 
@@ -89,7 +105,9 @@ function createWindow(): BrowserWindow {
     return { action: 'deny' }
   })
 
-  if (process.env.ELECTRON_RENDERER_URL) {
+  // 개발 서버 주소는 개발 실행에서만 읽는다. 설치본이 이 환경 변수로 다른 페이지를 불러오면
+  // 그 페이지가 preload의 window.baro(토큰 발급 등)를 쓸 수 있게 된다
+  if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
     win.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'))
@@ -336,6 +354,8 @@ const watchLogin = createLoginWatch({
 })
 
 app.whenReady().then(() => {
+  // 설치본에는 기본 메뉴(보기 → 개발자 도구, 새로 고침 등)를 두지 않는다. 앱 화면에는 메뉴가 필요 없다
+  if (app.isPackaged) Menu.setApplicationMenu(null)
   registerIpc()
   // 자동 로그인·갱신은 메인 프로세스에서 일어나므로, 바뀔 때마다 열린 창에 알린다(토큰 없는 상태만)
   onAuthChange((status) => {

@@ -1,0 +1,8 @@
+<!-- 설치 파일·실행 파일·바로가기 아이콘 원본. 앱 로고 표시(.logo-mark: accent 바탕, 모서리 14/46, 흰 번개)를 256px로 키운 것 -->
+<!-- icon.png는 이 파일에서 만든다(256×256). 바꾸면 PNG도 다시 만든다 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 46 46">
+  <rect width="46" height="46" rx="14" fill="#2f5bd3"/>
+  <svg x="11" y="11" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.4" stroke-linejoin="round">
+    <path d="M13 3L5 13.5h6L10 21l8-10.5h-6L13 3z"/>
+  </svg>
+</svg>
