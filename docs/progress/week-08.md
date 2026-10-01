@@ -80,3 +80,9 @@
     - CDP로 창을 미끼 페이지로 강제로 옮긴 뒤(will-navigate를 지나지 않는 이동) 그 페이지의 IPC 4개(createToken 포함) 모두 '허용하지 않는 페이지에서 온 요청입니다'로 거절, 앱 페이지로 돌아오면 정상
     - 권한: 클립보드 쓰기 ok, 알림 denied, 카메라 NotAllowedError, 위치 거절
     - 개발 실행(`pnpm dev:desktop`, localhost:5173, API 끔): IPC 정상, 미끼 이동 막힘. 끌어 놓기(사람): 크롬 링크·파일을 창에 놓아도 화면 그대로, 뒤에 창 주소 localhost:5173 그대로·IPC 정상(Claude)
+  - [x] 배포 뒤 `/metadata` 오류 종류 로그 확인 (2026-10-01, `b8d742d` Vercel 배포 success·CI success 뒤)
+    - 첫 시도(18:06 KST)는 운영에 닿지 않음: 앞서 `pnpm dev:desktop`이 `out/main`을 개발 빌드(localhost:3000)로 덮어써 4ms에 NETWORK. `out/`를 운영 빌드로 다시 만든 뒤 18:07:44 KST에 1건 → 422. 이 로그는 Hobby 요금제 보관 시간이 지나 대시보드에서 보이지 않음(사람). 이 함정은 `.local/manual-check/README.md` '주의'에 한 줄
+    - 다시 1건(운영 주소 확인·앱 health ok 뒤): 20:38:01.763 KST `http://127.0.0.1.nip.io/` → 422 METADATA_FETCH_FAILED(앱에서 560ms). Vercel 로그(사람): `Oct 01 20:38:02.35 GET 422 /api/v1/metadata` · `[metadata] 가져오기 실패: 기타(TypeError)`
+    - 붙여 준 로그 줄에는 주소·도메인·사용자 id가 없다. 사람 메모는 "줄 안에 주소·사용자 id는 (있었다)" → 우리가 남긴 줄이 아니라 Vercel 요청 기록(호스트·경로, 상세의 쿼리 문자열 `?url=`)을 가리킨 것인지 **확인 필요**
+    - 남은 것: 종류가 '기타(TypeError)'라 원인(DNS·연결 등)을 아직 모른다. 분류기가 못 본 곳 후보: undici가 감싼 오류의 `cause`가 code 없는 오류이거나 `AggregateError`(IPv4·IPv6 둘 다 실패)의 `errors` 안에 code가 있는 경우. 코드상 내부 주소면 접속 전에 400으로 거절하므로 내부 접속은 아님
+    - 쓰기: 운영 요청 실행마다 앱 시작 자동 동기화 1회(18:07·20:38 두 번, 18:06은 실패라 쓰기 없음)와 `rate_limits` 카운터 1건씩
