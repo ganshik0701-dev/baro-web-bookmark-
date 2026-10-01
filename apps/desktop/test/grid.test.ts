@@ -6,6 +6,25 @@ import { orderLikeServer } from '../src/renderer/src/lib/order'
 import { relativeTime } from '../src/renderer/src/lib/relative-time'
 import { faviconUrl, isUsableFavicon, tileColor, tileHost, tileLabel, tileLetter } from '../src/renderer/src/lib/tile'
 
+describe('tileLetter·tileColor 기억(같은 입력은 다시 계산하지 않음)', () => {
+  it('여러 번 불러도 결과가 같고, 제목·주소 경계가 다른 입력은 섞이지 않는다', () => {
+    for (let k = 0; k < 3; k++) {
+      expect(tileLetter('깃허브', 'https://github.com/')).toBe('깃')
+      expect(tileLetter('', 'https://github.com/')).toBe('G')
+      expect(tileColor('https://github.com/')).toBe(tileColor('https://www.github.com/x'))
+    }
+    // 제목+주소를 그냥 이어 붙이면 같은 키가 되는 두 입력
+    expect(tileLetter('a', 'https://b.example/')).toBe('A')
+    expect(tileLetter('', 'ahttps://b.example/')).not.toBe('A')
+  })
+
+  it('기억 칸이 넘쳐 비워진 뒤에도 같은 값을 낸다', () => {
+    const before = tileLetter('넘침 확인', 'https://overflow.example/')
+    for (let i = 0; i < 10_050; i++) tileLetter(`t${i}`, `https://s${i}.example/`)
+    expect(tileLetter('넘침 확인', 'https://overflow.example/')).toBe(before)
+  })
+})
+
 describe('tileLetter', () => {
   it.each([
     ['GitHub', 'https://github.com', 'G'],

@@ -23,9 +23,26 @@ function fnv1a(text: string): number {
   return hash >>> 0
 }
 
+/**
+ * 같은 입력의 결과를 기억한다. 검색어를 지우거나 보기를 바꾸면 타일 1,000개가 새로 만들어지는데,
+ * 그때마다 주소 해석(new URL)·글자 나누기(Intl.Segmenter)를 다시 하지 않게 한다(8주차 성능 확인).
+ * 북마크 수(최대 5,000)보다 넉넉하게 두고, 넘치면 통째로 비운다(오래 켜 둔 앱에서 무한히 커지지 않게)
+ */
+const CACHE_MAX = 10_000
+function remember<T>(cache: Map<string, T>, key: string, compute: () => T): T {
+  const hit = cache.get(key)
+  if (hit !== undefined) return hit
+  if (cache.size >= CACHE_MAX) cache.clear()
+  const value = compute()
+  cache.set(key, value)
+  return value
+}
+const colorCache = new Map<string, number>()
+const letterCache = new Map<string, string>()
+
 /** 1~8. 같은 호스트는 늘 같은 번호 → CSS에서 var(--tile-N-bg)·var(--tile-N-fg) 한 쌍 */
 export function tileColor(url: string): number {
-  return (fnv1a(tileHost(url)) % TILE_COLORS) + 1
+  return remember(colorCache, url, () => (fnv1a(tileHost(url)) % TILE_COLORS) + 1)
 }
 
 const segmenter = new Intl.Segmenter('ko', { granularity: 'grapheme' })
@@ -41,7 +58,8 @@ function firstLetter(text: string): string | null {
 
 /** 글자 타일의 글자. 제목의 첫 글자, 없으면 호스트의 첫 글자, 그것도 없으면 '?' */
 export function tileLetter(title: string, url: string): string {
-  return firstLetter(title) ?? firstLetter(tileHost(url)) ?? '?'
+  // 제목과 주소 사이에 둘 다에 나올 수 없는 문자(\u0000)를 넣어 키가 겹치지 않게 한다
+  return remember(letterCache, `${title}\u0000${url}`, () => firstLetter(title) ?? firstLetter(tileHost(url)) ?? '?')
 }
 
 /** 타일 아래 이름. 제목이 비면 호스트 */
