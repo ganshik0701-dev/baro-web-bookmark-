@@ -8,7 +8,7 @@
 
 ## 설치해서 쓰기
 
-1. 설치 파일 `baro-<버전>-setup.exe`를 실행한다. 만드는 방법은 [개발 문서 '설치 파일 만들기'](docs/development.md#설치-파일-만들기)
+1. [최신 릴리스](https://github.com/ganshik0701-dev/baro-web-bookmark-/releases/latest)에서 설치 파일 `baro-<버전>-setup.exe`를 받아 실행한다. 직접 만드는 방법은 [개발 문서 '설치 파일 만들기'](docs/development.md#설치-파일-만들기)
    - 코드 서명이 없어서 처음 실행할 때 "Windows의 PC 보호"(SmartScreen) 창이 뜰 수 있다. [추가 정보] → [실행]
 2. 원클릭 설치다. 폴더 선택·관리자 권한 없이 사용자 폴더(`%LOCALAPPDATA%\Programs\baro`)에 설치되고, 끝나면 앱이 켜진다. 바탕 화면과 시작 메뉴에 "바로" 바로가기가 생긴다
 3. [Google로 계속하기] → 기본 브라우저에서 로그인 → 앱으로 돌아온다. 첫 로그인 때 계정이 만들어진다

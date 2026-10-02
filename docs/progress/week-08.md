@@ -131,5 +131,11 @@
     - B 같은 북마크인데 다른 PC가 id를 처음부터 다시 매긴 경우(크롬 동기화로 받은 PC): 추가 27·삭제 27·**수정 85, 그중 85개 모두 주소가 다른 사이트로 바뀜**. 삭제 27/112라 **대량 삭제 확인이 뜨지 않고 조용히 반영**됨. 방문 수가 있었다면 85개 행의 방문 기록이 다른 사이트에 붙었을 것(지금은 방문 수 0이라 실제 피해는 없음)
     - C 북마크가 전혀 다른 PC(30개): 추가 9·수정 21(모두 다른 사이트로)·삭제 91 → 대량 삭제 확인 뜸(91/112)
     - 결론: 다른 PC에서 동기화를 한 번이라도 보내면 이 계정 북마크가 그 PC 것으로 바뀐다. B처럼 확인 창 없이 일어날 수 있어 (가) 방식이 필요
-  - 설치 파일 다시 빌드: 여유 메모리 1.76GB(시작 기준 2.5GB 미만)라 시작 안 함
+  - 설치 파일 다시 빌드: 여유 메모리 1.76GB(시작 기준 2.5GB 미만)라 시작 안 함 → 사람 결정으로 기준 시작 2GB·중단 1.2GB, 꼭 필요한 검사만
+  - [x] 설치 파일 다시 빌드·검사 (2026-10-02, `7f82775` 기준, 시작 여유 메모리 2.75GB·최저 2.10GB, 빌드 한 번에 성공)
+    - `apps/desktop/release/baro-0.1.0-setup.exe` 87,218,178바이트, SHA-256 `06b835bd16f23d2717189dfda37221aa5729de01dd4ac9abc39ef1d10bba9eb9`
+    - 파일: asar 안 node_modules 0, `.map`·`.env`·`sourceMappingURL` 0, localhost 0, 비밀 패턴·서비스 키·DB 주소 0, API 주소는 운영 하나, package.json name `baro`, Fuses 4개(RunAsNode·NodeOptions·NodeCliInspect 끔, OnlyLoadAppFromAsar 켬)
+    - CSP·창 이동 차단: `b8d742d`(보안 수정·재확인) 뒤로 index.html·electron.vite.config·main·preload·electron-builder.yml·build/ 변경 없음, 빌드에 `connect-src 'none'`과 창 이동·IPC·권한 코드 그대로
+    - 실행(로그인 파일을 잠시 옮겨 자동 동기화 없이, 끝나고 되돌림): 금지 스위치 4종 모두 0.5~1.6초 안에 종료 코드 1·포트 없음, `ELECTRON_RUN_AS_NODE=1`은 Node로 안 돌고 로그인 화면(표시 파일 없음), 정상 실행 로그인 화면
+  - [x] GitHub Releases 공개 (2026-10-02 21:55 KST, 사람이 웹에서): https://github.com/ganshik0701-dev/baro-web-bookmark-/releases/tag/v0.1.0 — 태그 `v0.1.0`은 `7f82775`, Latest. 첨부 `baro-0.1.0-setup.exe` 87,218,178바이트, GitHub가 보여 준 sha256이 로컬 빌드와 전부 같음(API로도 확인). 설명문은 `.local/manual-check/release-notes-v0.1.0.md`(v1은 PC 한 대 기준 단락 포함). README 1단계에 받는 곳 링크(`/releases/latest`)
   - 다른 PC에서 할 일((가) 방식): ① **이 PC** 설정에서 '앱을 열 때 자동으로 동기화' 끄기 → ② 다른 PC에서 Releases로 받기·SmartScreen [추가 정보]→[실행]·설치 → ③ 같은 계정 로그인, 첫 동기화 화면 없이 홈 → ④ 전체 112·아이콘·계정 카드 안내 문구·동기화 시각이 안 바뀌었는지 → ⑤ '지금 동기화' 누르지 않기 → ⑥ 북마크 하나 열어 보기(방문 수 1) → ⑦ **이 PC**로 돌아와 자동 동기화 다시 켜기
