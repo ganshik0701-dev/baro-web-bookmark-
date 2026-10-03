@@ -1,7 +1,7 @@
 {
   "name": "@baro/desktop",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",

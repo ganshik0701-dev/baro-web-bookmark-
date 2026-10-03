@@ -16,6 +16,11 @@ files:
   - '!**/*.map'
 # baro.exe의 Electron Fuses를 바꾼다(디버깅·코드 주입 통로 닫기, CLAUDE.md 'Electron 보안')
 afterPack: build/after-pack.cjs
+# Chromium 언어 파일(locales/*.pak, 원래 55개·약 42MB)은 한국어·영어만 넣는다. 앱 화면 글은 한국어뿐이고,
+# 다른 언어 Windows에서는 Chromium 기본 문구(오른쪽 클릭 메뉴 등)가 영어로 나온다(docs/01-spec.md '설치·제거')
+electronLanguages:
+  - ko
+  - en-US
 win:
   target: nsis
   icon: build/icon.png

@@ -3,7 +3,7 @@
 전체 계획의 현재 상태. 작업이 끝날 때마다 여기 체크박스를 채운다.
 상세 내용은 `docs/05-roadmap.md`, 작업 지시 문구는 `docs/06-prompts.md`, 주차별 확인 기록은 `docs/progress/week-NN.md`.
 
-마지막 갱신: 2026-10-03 (8주차 완료: 8주 회고 기록)
+마지막 갱신: 2026-10-03 (0.1.1 언어 파일 축소)
 
 **다음 작업 (순서대로)**
 1. **v1.1 (방학에 시작)** — 학기 끝까지 직접 쓰며 불편한 점 모으기. 시작하면 개발용 DB 분리 → 여러 PC 동기화 순서([회고](docs/progress/retrospective.md))
@@ -57,6 +57,11 @@
 - [x] README 정리 — 처음 온 사람용으로 줄이고 `docs/development.md` 분리, 스크린샷(가짜 데이터), 받는 곳 링크, DB 쓰기 없는 명령 실행 확인 (2026-10-02)
 - [x] 다른 PC에 설치해 사용 — v0.1.0 릴리스로 설치·로그인·보기 확인(자동 동기화는 끈 채). 그 PC 앱은 로그인된 채 남아 있음, 켜면 동기화가 돌 수 있어 주의 (2026-10-02, [week-08](docs/progress/week-08.md))
 - [x] 8주 회고 기록 — [retrospective.md](docs/progress/retrospective.md) (2026-10-03)
+
+## 0.1.1 (8주차 뒤)
+
+- [x] 0.1.1: 언어 파일 축소 — 설치본 locales를 한국어·영어만(`electronLanguages: [ko, en-US]`), 버전 0.1.1 (2026-10-03)
+  - 크기: 설치 파일 83.2 → 76.2MB, 설치 폴더 274.6 → 235.4MB(locales 55개 40.3MB → 2개 1.0MB). 검사: 파일(.map·.env·localhost·비밀값 0, 운영 API만, Fuses 그대로)·`--remote-debugging-port` 종료 코드 1·정상 실행 로그인 화면(Claude). 이 PC에 설치해 설치 폴더 약 235MB·locales 2개·홈 112 확인(사람). SHA-256 `5373565f…672e1b`, 설명문 `.local/manual-check/release-notes-v0.1.1.md`, GitHub 릴리스는 사람이 올림
 
 ## v1.1로 옮긴 것 (9~11주차)
 
